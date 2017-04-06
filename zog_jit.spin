@@ -87,12 +87,13 @@
 CON
 ' cache configuration
 ' CACHE_LINE_SIZE must be a power of 2
+' 4 or 8 is probably good if we expect a lot of misses
 '' define TWO_LINE_CACHE for a 2 way cache
 '' otherwise we have only a single line
-'#define TWO_LINE_CACHE
-' CACHE_LINE_SIZE = 32
+#define TWO_LINE_CACHE
+CACHE_LINE_SIZE = 32
 
-CACHE_LINE_SIZE = 64
+'CACHE_LINE_SIZE = 64
 CACHE_LINE_MASK = (CACHE_LINE_SIZE-1)
 
 ' These are the SPIN byte codes for mul and div
@@ -167,10 +168,6 @@ DAT
 enter
                         jmp     #init
 			
-zpu_nop
-			nop
-			nop
-
 '------------------------------------------------------------------------------
 
 			'' just compile the 2 instructions pointed to by the dest field
@@ -440,6 +437,8 @@ zpu_emulate_impl
 div_zero_error
 zpu_illegal
 			call	#break
+zpu_nop					'' share a nop here
+			nop
 			nop
 			
 '------------------------------------------------------------------------------
@@ -447,20 +446,6 @@ zpu_illegal
 ' dummy routine to set up intern_pc
 dummy
 			jmp	intern_pc
-
-'' COG internal PC address
-intern_pc		long	icache0+1	' store return address here
-'' start PC of current cache line
-cur_cache_tag		long	$DEADBEEF
-'' base of current cache line
-cur_cache_base	   	long	icache0
-
-#ifdef TWO_LINE_CACHE
-'' last cache line
-prev_cache_tag		long	$EEEEEEEE
-prev_cache_base		long	icache1
-#endif
-
 
 ' get PC of next instruction (pc+1 in ZPU documentation terms) into cur_pc
 '' this relies on intern_pc being set up
@@ -554,15 +539,15 @@ read_long
                         rdlong  tos, memp
 read_long_ret           ret
 special_read
-			cmp     address, uart_address wz
-              if_z      jmp     #in_long
+''			cmp     address, uart_address wz
+''              if_z      jmp     #in_long
                         cmp     address, timer_address wz
               if_z      mov     tos, cnt
-	      if_nz     mov	tos, #0
+	      if_nz     mov	tos, #$100	' makes the UART happy
                         jmp     read_long_ret
 			
-in_long                 mov     tos, #$100
-                        jmp     #read_long_ret
+''in_long                 mov     tos, #$100
+''                        jmp     #read_long_ret
 
 '------------------------------------------------------------------------------
 
@@ -602,21 +587,16 @@ write_io_long           wrlong  address, io_port_addr 'Set port address
 '------------------------------------------------------------------------------
 '
 ' copy CNT cog longs
+' then jump back to nexti
 '
-ccopy			
+ccopy_next
+ccopy
 			mov 0-0, 0-0
 			add ccopy, cstep
 			djnz cnt, #ccopy
-ccopy_ret
-			ret
+			jmp  #nexti
 cstep			long (1<<9) + 1
 
-'
-' do ccopy then do next instruction
-'
-ccopy_next
-			call	#ccopy
-			jmp	#nexti
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -783,19 +763,6 @@ break_ss_ret
 break_ret               ret
 '------------------------------------------------------------------------------
 
-#ifdef IMPL_SYSCALL
-'------------------------------------------------------------------------------
-syscall
-	                wrlong  pc, pc_addr             'Dump registers to HUB.
-                        wrlong  sp, sp_addr
-                        mov     t2, #io_cmd_syscall   'Set I/O command to SYSCALL
-                        wrlong  t2, io_command_addr
-:wait                   rdlong  t2, io_command_addr wz'Wait for command completion
-              if_nz     jmp     #:wait
-                        rdlong  sp, sp_addr
-                        rdlong  pc, pc_addr
-syscall_ret             ret
-#endif
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -835,11 +802,10 @@ dm_addr                 mov     dm_addr, temp        'HUB address of decode mask
 dbg_data                add     temp, #4
 debug_addr              mov     debug_addr, temp     'HUB address of debug register
 
-			mov	cur_pc, #0
+aux_opcode		mov	cur_pc, #0  	     ' implementation data for translating current opcode byte
 			jmp	#set_pc
 
 im_flag			long first_im    ' last instruction was im
-aux_opcode		long 0	    ' implementation data for translating current opcode byte
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -853,6 +819,23 @@ io_mask			long $ff000000
 zpu_hub_start           long $10000000  'Start of HUB access window in ZPU memory space
 zpu_cog_start           long $10008000  'Start of COG access window in ZPU memory space
 zpu_io_start            long $10008800  'Start of IO access window
+
+
+'' COG internal PC address
+intern_pc		long	icache0+1	' store return address here
+'' start PC of current cache line
+cur_cache_tag		long	$DEADBEEF
+'' base of current cache line
+cur_cache_base	   	long	icache0
+
+#ifdef TWO_LINE_CACHE
+'' last cache line
+prev_cache_tag		long	$EEEEEEEE
+prev_cache_base		long	icache1
+#endif
+
+
+
 '------------------------------------------------------------------------------
                         fit     $1F0  ' $198 works, $170 would be ideal, $1F0 is whole thing
 
