@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <malloc.h>
+#ifdef __zpu__
+#define printf iprintf
+#endif
 
 #define uint32_t unsigned int
 
