@@ -561,7 +561,11 @@ special_read
 	      if_nz     mov	tos, #0
                         jmp     read_long_ret
 			
-'Write a LONG from "data" to ZPU memory at "address"
+in_long                 mov     tos, #$100
+                        jmp     #read_long_ret
+
+'------------------------------------------------------------------------------
+
 'Write a LONG from "data" to ZPU memory at "address"
 write_long              cmp     address, zpu_hub_start wc 'Check for normal memory access
               if_nc     jmp     #write_hub_long
@@ -613,16 +617,6 @@ cstep			long (1<<9) + 1
 ccopy_next
 			call	#ccopy
 			jmp	#nexti
-'------------------------------------------------------------------------------
-in_long                 mov     tos, #$100
-                        jmp     #read_long_ret
-
-out_long                wrlong  data, io_data_addr
-                        mov     t2, #io_cmd_out     'Set I/O command to OUT
-                        wrlong  t2, io_command_addr
-:wait                   rdlong  t2, io_command_addr wz
-              if_nz     jmp     #:wait
-                        jmp     #write_long_ret
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
