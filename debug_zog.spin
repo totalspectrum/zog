@@ -222,7 +222,8 @@ UART_TX_PORT  = $80000024 'ZPU virtual UART I/O ports
 UART_RX_PORT  = $80000028
 
 OBJ
-  zog  : "zog"
+''  zog  : "zog"
+  zog  : "zog_jit"
   ser  : "FullDuplexSerialPlus"
 #ifdef USE_JCACHED_MEMORY
   sd   : "fsrwFemto_rr001"                          'SD Software used in FemtoBASIC
