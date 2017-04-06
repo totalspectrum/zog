@@ -1,0 +1,213 @@
+/***************************************************************************************
+VMCog.cpp
+
+A C++ implementation of the Spin language parts of vmcog.spin, a
+virtual memory server for the Parallax Inc. Propeller micro-controller.
+
+This implements the configuration and loading of the vmcog firmware into a COG and subsequent
+interaction with the vmcog COG through a shared memory "mailbox".
+
+The vmcog driver firmware (PASM code) is compiled and extracted from the original
+vmcog.spin source using the BSTC compiler (See accompanying Makefile).
+
+The original vmcog.spin source was:
+
+    VMCOG v0.975 - virtual memory server for the Propeller
+    Copyright February 3, 2010 by William Henning
+    with a last update on Jun18 (v0.975)
+
+See end of file for terms of use.
+****************************************************************************************/
+#include <stdio.h>
+
+#include "VMCog.h"
+#include "propeller.h"
+
+
+//-----------------------------------------------------------------------------------------------
+// Start VMCOG
+//
+// You must reserve 4 longs for the mailbox, and pass its address to Start in order to run VMCOG.
+// The reason you must provide your own mailbox is to allow more than VMCOG to run on the same
+// Propeller.
+//-----------------------------------------------------------------------------------------------
+//
+// When command is done, VMCOG will write 0 to cmd, and 1 to bytes (one long write)
+
+void VMCog::start(int* mailbox, int lastp, int nump)
+{
+  cmdptr = mailbox;
+  vaddrptr = mailbox + 1;
+  dataptr = mailbox + 2;
+
+  *vaddrptr = lastp - ((nump - 1) * 512);           // Single byte read/writes are the default
+  *dataptr = nump;                                  // Single byte read/writes are the default
+  *((short int*)cmdptr) = (short int)0xffff0000;    //FIXME What? this was WORD[cmdptr] 
+
+#ifdef XEDODRAM
+  longfill (@xmailbox, 0, 2)              // Ensure command starts as 0
+  long[mailbox + 3] = &xmailbox           // 3rd vmcog mailbox word used for xm interface
+  xm.start(&xmailbox)                     // Start up inter-cog xmem
+#endif	
+
+  // Load/init the cog
+  int* vmcog = &_binary_vmcog_dat_start;
+  int cog = cognew (vmcog, mailbox);
+
+#ifdef VM_EXTRA
+  fcmdptr = fakebox;
+  fdataptr = fcmdptr + 1;
+#endif
+  
+  while (*cmdptr);                        // Should fix startup bug heater found - it was the delay to
+}
+
+int VMCog::rdvbyte (int adr)
+{
+  while (*cmdptr);                        // Wait for last command completion.
+  *cmdptr = (adr << 9) | READVMB;         // Set command and addres param.
+  while (*cmdptr);                        // Wait for command completion.
+  return (*dataptr);
+}
+
+int VMCog::rdvword (int adr)
+{
+  while (*cmdptr);                        // Wait for last command completion.
+  *cmdptr = (adr << 9) | READVMW;         // Set command and addres param.
+  while (*cmdptr);                        // Wait for command completion.
+  return (*dataptr);
+}
+
+int VMCog::rdvlong (int adr)
+{
+  while (*cmdptr);                        // Wait for last command completion.
+  *cmdptr = (adr << 9) | READVML;         // Set command and addres param.
+  while (*cmdptr);                        // Wait for command completion.
+  return (*dataptr);
+}
+
+void VMCog::wrvbyte(int adr, int dt)
+{
+  while (*cmdptr);                        // Wait for last command completion.
+  *dataptr = dt;                          // Set data to be written
+  *cmdptr = (adr << 9) | WRITEVMB;        // Set command and addres param.
+  while (*cmdptr);                        // Wait for command completion.
+}
+
+void VMCog::wrvword (int adr, int dt)
+{
+  while (*cmdptr);                        // Wait for last command completion.
+  *dataptr = dt;                          // Set data to be written
+  *cmdptr = (adr << 9) | WRITEVMW;        // Set command and addres param.
+  while (*cmdptr);                        // Wait for command completion.
+}
+
+void VMCog::wrvlong (int adr, int dt)
+{
+  while (*cmdptr);                        // Wait for last command completion.
+  *dataptr = dt;                          // Set data to be written
+  *cmdptr = (adr << 9 ) | WRITEVML;       // Set command and addres param.
+  while (*cmdptr);                        // Wait for command completion.
+}
+
+#ifdef VM_EXTRA
+
+int VMCog::rdfbyte (int adr)
+{
+  while (0);                              // Fake wait for last command completion.
+  *fcmdptr = (adr << 9) | READVMB;        // Set fake command
+  while (0);                              // Fake wait for command completion.
+  return (0);
+}
+
+void VMCog::wrfbyte (int adr, int dt)
+{
+  while (0);                              // Fake wait for last command completion.
+  *fdataptr = dt;                         // Set fake data
+  *fcmdptr = (adr << 9) | WRITEVMB;       // Set fake command
+  while (0);                              // Fake wait for command completion.
+}
+
+void VMCog::flush ()
+{
+  while (*cmdptr);                        // Wait for last command completion.
+  *cmdptr = FLUSHVM;                      // Set flush command
+  while (*cmdptr);                        // Wait for command completion.
+}
+
+void VMCog::look (int adr)
+{
+  while (*cmdptr);                        // Wait for last command completion.
+  *dataptr = adr;                         // Set address parameter
+  *cmdptr = DUMPVM;                       // Set dump command
+  while (*cmdptr);                        // Wait for command completion.
+}
+
+int VMCog::getPhysVirt (int vaddr)
+{
+  while (*cmdptr);                        // Wait for last command completion.
+  *cmdptr = (vaddr << 9) | VIRTPHYS;      // Set virtphys commad and address parameter.
+  while (*cmdptr);                        // Wait for command completion.
+  return (*dataptr);
+}
+
+int VMCog::getVirtLoadAddr (int vaddr)
+{
+  int va;
+  va = vaddr & 0x7FFE00;                  // 23 bit VM address - force start of page
+  wrvbyte(vaddr, rdvbyte(va));            // Force page into working set, set dirty bit
+  return (getPhysVirt(va));               // Note returned pointer only valid until next vm call
+}
+
+int VMCog::getVirtPhys (int adr)
+{
+//  waitcnt(cnt+80_000_000)
+  return (0);
+}
+
+int VMCog::lock (int vaddr, int pages)    // Should be called after Flush, before any other access
+{
+  return (0);
+}
+
+int VMCog::Unlock(int vaddr, int page)
+{
+  return (0);
+}
+
+#endif
+
+/***************************************************************************************
+VMCOG v0.975 - virtual memory server for the Propeller
+
+Copyright February 3, 2010 by William Henning
+
+This code is released under the terms of the MIT license, "Atribution Required", and this
+Copyright notice may not be removed. Basically this means that as long as you leave this
+copyright notice in any code that uses this file, and provide credit to the authors in
+the source and documentation for your product, you may use this code. Please note that
+this does NOT give you any license to the hardware the code may be written for - for example,
+if there is an XMM driver for Acme board's XMM interface, it does not give you the right to
+duplicate the Acme board, or its XMM interface.
+
+At this point this code is just a skeleton of what will come, but it is enough to illustrate
+the concept.
+****************************************************************************************
+                           TERMS OF USE: MIT License
+Permission is hereby granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the "Software"), to deal in the Software
+without restriction, including without limitation the rights to use, copy, modify,
+merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be included in all copies
+or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+****************************************************************************************/

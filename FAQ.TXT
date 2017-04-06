@@ -1,0 +1,93 @@
+Cygwin
+------
+
+I just downloaded cygwin into Windows XP running in VirtualBox. Takes for ever if you install everything:) Compiling with install/bin/zpu-elf-gcc -phi hello.c just worked out of the box.
+
+
+ZPU/ZOG IO
+----------
+
+Out of the box the ZPU tool chain, is set up to support some simple  configurations of the ZPU processor core on an FPGA. It's only I/O is a console port which is memory mapped and a timer register. If you really want to get into this you would have to download the toolchain sources and have a look in the C run time support source.
+
+Zog implements the console port by way of checking ZPU LOAD and STORE instructions. If the address is outside of the ZPU memory range then the access is passed along to the debug_zog COG to handle. Look for zog_mbox in the code. Currently debug_zog sees I/O commands for the console port address and uses FullDuplexSerial to do the work.
+
+In this way things like printf work and we can get "Hello World" running.
+
+There is an alternative I/O mechanism that uses the ZPU SYSCALL instruction. If you put "_use_syscall = 1;" in your program then then standard input and output are redirected to use SYSCALL. This mechanism seems to be implemented in ZPU for use with the Java simulator. Zog passes all SYSCALLs out to debug_zog in much the same way as I/O operations. 
+
+The only syscalls implemented in debug_zog are SYS_read and SYS_write and they only work on the stdio file handles at the moment. Again, enough to get "Hello world" working. Perhaps the syscall mechanism will be expanded to use the SD card file system at some point.
+
+
+                         FAQ
+                         ---
+
+C Libraries
+-----------
+[quote]I'm wondering what library functions are available on the Propeller?[/quote]and
+[quote]
+Can the programs use stdio with fopen/fclose/etc? What low-level I/O functions are available. It would be nice to have a simple list of the functions that are available in the runtime.
+[/quote]
+
+Good question, and one that I have not got to the bottom of yet.
+
+So, given the fact that C programs under Zog have no file system yet most of the standard C library is there. Have a look in your install/zpu-elf/include/ directory to see what we have. I cannot guarantee how much of it is actually implemented though. For that we would have to look at the C libraries "newlib" and "libgloss" source.
+
+If you want to get into floating point there is libm chock full of sin, cos, tan, etc. But warning, the resulting binaries will be huge and slow. I'm working on adding a floating point "coprocessor" cog which will improve that situation dramatically.
+
+[quote]
+I'd like to stay away from using stdio.h as much as possible so I want to use low level stuff to make it more likely that my program will actually fit in the 32k hub memory.
+[/quote]
+
+Good plan, things like printf are rather huge (There is a smaller iprintf though and there is a print function that is small and works directly on the ZPU UART port). Have a look in hello.c for examples. You can always read/write bytes directly to that UART port address from your C code and build up your own mini I/O library. Taking things further one could add further IO ports to debug_zog and use them for whatever other device drivers you want.
+
+[quote]
+I'm also not entirely clear on how to go from a test.bin file to something that can be loaded and run on the Propeller. Is there an example of how to do this somewhere?
+[/quote]
+
+debug_zog.spin is the top level object that starts up Zog and provides I/O for ZOG, in there you will see that the ZPU binary is included into the Spin using a "file" statement when running ZPU code from HUB memory. Of course one could hack that around to load the binary from an SD card file instead as is done when executing from external memory.
+
+[quote]
+Are there any examples of relatively large programs ported to ZOG? I've only seen small demo programs so far. Any idea how big a program might fit into Hub memory?
+{/quote]
+
+Not yet. At the moment in time I'm still amazed the thing works at all:) A minimal C program currently comes out at 3K bytes or so. I'm going to look into shrinking that. There is at least 1K of vector table that gets included with the run time that we don't use and should be removed.
+
+I've been running programs with debug_zog that sit in 26K Bytes of HUB memory leaving 252 LONGs free. Just tweak the 
+"zpu_memory_size" constant.
+
+
+                            Files
+                            -----
+
+debug_zog
+---------
+A
+s it's name suggests has grown as a tool to debug the interpreter, the external RAM, and C programs it runs. As a result it ends up providing the console I/O and even SD card support which is useful for actual applications. It serves as an example of ZOG usage. It can of course be chopped down or extended as required for any particular application.
+
+run_zog
+-------
+Is something of an experiment at the moment. The aims here are:
+1) Get Zog and C code running with minimal memory foot print for the Spin startup code and hence maximum HUB memory for C.
+2) Optionally enable Zog to takeover the entire Propeller with no Spin code left at run time at all.
+
+As such it has no I/O, it's just a loader. That means that any I/O, a serial port for example, has to be created in C. Enter libzog.
+
+libzog
+------
+
+Is even more experimental and has the following ideas in mind:
+1) Create C versions of things like FullDuplexSerial. That is use the PASM parts of existing objects, possibly adapted a little, and replace the Spin interfaces with C interfaces. This has been shown to be quite workable and FullDuplexSerial and VMCog have C wrappers.
+2) libzog is an experiment in working with C++ under Zog. Which turns out is a good fit for making the equivalent of Spin objects.
+3) libzog will grow to support Arduino programs.
+4) Zog itself should be have a C++ wrapper so that it can be used from C++ programs. That is staring multiple interpreter instances as you do in Spin.
+
+test_libzog
+-----------
+
+A little test harness for the objects in libzog and is first program we have that runs with out any Spin code left in the Prop.
+
+
+Propeller Specific Features
+---------------------------
+
+I think for any real application Zog will need access to Prop features like waitxx, DIRA, INA, OUT, CNT, LOCKS etc etc. I want to put as much of that as possible into the interpreter COG. Space is getting  tight.

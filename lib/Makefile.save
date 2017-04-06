@@ -1,0 +1,134 @@
+# Makefile to compile and link a test program from test.c for the ZPU architecture
+# Creates a raw binary RAM image to load - test.bin
+# Creates an assembler listing file - test.lst
+
+# Path to the gcc executable and friends
+TOOLPATH=/home/michael/ZPU/toolchain/install/bin/
+
+# The compiler/linker
+CC=$(TOOLPATH)zpu-elf-gcc
+CPP=$(TOOLPATH)zpu-elf-g++
+LD=$(TOOLPATH)zpu-elf-ld
+AR=$(TOOLPATH)zpu-elf-ar
+
+# objdump. Disassemble including line numbers and source code. 
+#OD=$(TOOLPATH)zpu-elf-objdump -d -l --source
+OD=$(TOOLPATH)zpu-elf-objdump -D -l --source --demangle
+
+# objcopy. Just copy relevent sections to a binary image.
+OC=$(TOOLPATH)zpu-elf-objcopy -O binary
+#OC=$(TOOLPATH)zpu-elf-objcopy -O srec --srec-forceS3
+
+# Compiler flags. Compile only, debug info, all warnings, optimize for size
+CFLAGS=-c -g -Wall -Os
+CPPFLAGS=-c -g -Wall -Os -fno-exceptions -lstdc++
+
+# The ZPU platform Phi board (phi) or Able board (able)
+ZPUPLATFORM=-phi
+
+#Linker flags. phi platform, shrink(relax) immediates, remove unwanted sections
+LDFLAGS=$(ZPUPLATFORM) -L. -Wl,--relax -Wl,--gc-sections -fno-exceptions
+
+# Source files, add more here if you have
+CSOURCES=propeller.c xxtea.c
+CPPSOURCES=test_libzog.cpp       \
+           FullDuplexSerialPlus.cpp    \
+           VMCog.cpp              
+           
+SPINSOURCES=FullDuplexSerialPlus.spin      \
+            vmcog.spin
+
+# Create a list of object file names from source file names
+OBJECTS=$(CSOURCES:.c=.o)
+OBJECTS+=$(CPPSOURCES:.cpp=.o)
+
+# Add any other odd objects here
+OBJECTS+=Zog_FullDuplexSerialPlus_Firmware.o \
+         vmcog_Firmware.o
+
+MAINOBJECT=test_libzog.cpp
+
+# The program to build 
+EXECUTABLE=test_libzog
+
+# The library to build
+LIBRARY=libzog.a
+
+# Binary output file name
+BINARY=$(EXECUTABLE).bin
+
+#Listing output file name
+LISTING=$(EXECUTABLE).lst
+
+# By default build an executeable, a raw binary RAM image and an assembler listing file 
+all: $(LIBRARY) $(EXECUTABLE) $(BINARY) $(LISTING)
+	
+# Link the executable from object files
+$(EXECUTABLE): $(LIBRARY) $(MAINOBJECT) $(OBJECTS) 
+	$(CC) $(LDFLAGS) $(MAINOBJECT) $(LIBRARY) -o $@
+
+# Convert elf executable to raw binary image
+# And reverse endianness.
+$(BINARY): $(EXECUTABLE)
+	$(OC) $(EXECUTABLE) $(BINARY)
+	objcopy -I binary -O binary --reverse-bytes=4  $(BINARY)
+
+
+# Create a listing file
+$(LISTING): $(EXECUTABLE)
+	$(OD) $(EXECUTABLE) > $(LISTING)
+
+# Compile .c files into objects .o
+.c.o:
+	$(CC) $(CFLAGS) $< -o $@
+
+
+# Compile .cpp files into objects .o
+.cpp.o:
+	$(CPP) $(CPPFLAGS) $< -o $@
+
+$(LIBRARY): $(OBJECTS)
+	$(AR) rcs libzog.a $(OBJECTS)  
+
+	
+#firmware: FullDuplexSerialPlus_Firmware.lst FullDuplexSerialPlus_Firmware.hex #FullDuplexSerialPlus_Firmware.o
+
+# Extract DAT section (PASM code for COG) from Spin module into .dat file (-0x enables #defines)
+Zog_FullDuplexSerialPlus.dat: Zog_FullDuplexSerialPlus.spin
+	./bstc.linux -Ox -c Zog_FullDuplexSerialPlus.spin 
+
+vmcog.dat: vmcog.spin
+	./bstc.linux -Ox -c vmcog.spin 
+
+# Create a hex dump of the .dat file in HEX
+#FullDuplexSerialPlus_Firmware.hex: FullDuplexSerialPlus.dat
+#	hexdump -C FullDuplexSerialPlus.dat > FullDuplexSerialPlus_Firmware.hex 
+
+# Convert binary .dat file into an elf object file for zpu-elf-gcc target
+# N.B. the zpu-elf-objcopy has no reverse-bytes option, use the host objcopy.
+Zog_FullDuplexSerialPlus_Firmware.o: Zog_FullDuplexSerialPlus.dat
+	objcopy -I binary -O binary --reverse-bytes=4  Zog_FullDuplexSerialPlus.dat
+	$(TOOLPATH)zpu-elf-objcopy -I binary -B zpu -O zpu-elf-gcc \
+	Zog_FullDuplexSerialPlus.dat Zog_FullDuplexSerialPlus_Firmware.o
+
+vmcog_Firmware.o: vmcog.dat
+	objcopy -I binary -O binary --reverse-bytes=4  vmcog.dat
+	$(TOOLPATH)zpu-elf-objcopy -I binary -B zpu -O zpu-elf-gcc \
+                vmcog.dat vmcog_Firmware.o
+
+
+
+# Disassemble the resulting object file, notice the lable at the begining
+#FullDuplexSerialPlus_Firmware.lst:  FullDuplexSerialPlus_Firmware.o
+#	$(TOOLPATH)zpu-elf-objdump -m zpu -D -l --source FullDuplexSerialPlus_Firmware.o >  #FullDuplexSerialPlus_Firmware.lst
+
+# Disassemble the resulting object file, notice the lable at the begining
+vmcog_Firmware.lst:  vmcog_Firmware.o
+	$(TOOLPATH)zpu-elf-objdump -m zpu -D -l --source vmcog_Firmware.o > vmcog_Firmware.lst
+
+
+
+# Clean up 
+clean:
+	rm -f *o *~ $(EXECUTABLE) $(BINARY) $(LIBRARY)  *.lst *.dat *.hex
+
