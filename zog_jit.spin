@@ -107,44 +107,6 @@ io_cmd_in       = $02
 io_cmd_break    = $03
 io_cmd_syscall  = $04
 
-'System  call ID numbers. Taken from libgloss syscall.h
-'These are required by the ANSI C part of newlib (excluding system() of course).
-SYS_exit        =  1
-SYS_open        =  2
-SYS_close       =  3
-SYS_read        =  4
-SYS_write       =  5
-SYS_lseek       =  6
-SYS_unlink      =  7
-SYS_getpid      =  8
-SYS_kill        =  9
-SYS_fstat       = 10
-'SYS_sbrk       = 11 - not currently a system call, but reserved.
-'ARGV support.
-SYS_argvlen     = 12
-SYS_argv        = 13
-'These are extras added for one reason or another.
-SYS_chdir       = 14
-SYS_stat        = 15
-SYS_chmod       = 16
-SYS_utime       = 17
-SYS_time        = 18
-
-'Standard file decriptors
-STDIN_FILENO    = 0
-STDOUT_FILENO   = 1
-STDERR_FILENO   = 2
-
-CON
-  READVMB       = 130 'Read a byte from VMcog
-  READVMW       = 131 'Read a word from VMcog
-  READVML       = 132 'Read a long from VMcog
-
-  WRITEVMB      = 133 'Write a byte to VMcog
-  WRITEVMW      = 134 'Write a word to VMcog
-  WRITEVML      = 135 'Write a long to VMcog
-
-
 VAR
   long cog
   
@@ -164,14 +126,120 @@ PUB getzog
 
 DAT
 
-                        org     0
+{{
+    JIT ZPU Compiler Theory of Operation
+
+    We read a whole cache line from the HUB's ZPU memory at a time,
+    and convert the ZPU instructions to Prop instructions which we
+    then execute.  The general idea is that every ZPU bytecode is
+    expanded to exactly two Propeller instructions (so we can easily
+    map branch addresses).  Some ZPU instructions need more; in that
+    case one of the translated Prop instructions will be a subroutine
+    call to a resident routine.
+
+}}
+    
+			long
+dispatch_table
+
+' This is not a traditional jmp table, it's an indirect one.
+' The bottom 9 bits (the source field) encodes the destination for
+' the jump, but the other bits can also encode information about
+' the instruction as well.
+' The whole 32 bits is placed in the aux_opcode register for use
+' by the compilation code
+'
+' The bottom 9 bits (source) is always used and contains the address of
+' the routine to compile this instruction to Prop mode
+' the next 9 bits (dest) is usually some kind of argument to the routine
+' for example, the emit_literal2 routine just copies 2 instructions
+' from the pattern encoded in dest into the cache, without having to
+' patch it any further. This is a pretty common way to do things.
+'
+' The instruction field is also used by some compilation routines. For
+' example, in the emit_binaryop we use it to decide which opcode to
+' insert into cache. A lot of the compiler routines ignore this, though,
+' I use "cmp" as the generic default instruction because it stands for
+' "compiler", but I suppose whichever opcode is 0 would have made sense
+' too.
+'
+{00}                    cmp     zpu_breakpoint, #emit_literal2	' compile zpu_breakpoint
+{01}                    cmp     zpu_illegal,    #emit_literal2	' compile zpu_illegal
+{02}                    cmp     zpu_pushsp,     #emit_literal2	' compile zpu_pushsp
+{03}                    cmp     zpu_illegal,    #emit_literal2	' compile zpu_illegal
+{04}                    cmp     zpu_poppc,      #emit_literal2	' compile zpu_poppc
+{05}                    add     0, #zpu_binaryop		' compile zpu_add
+{06}                    and     0, #zpu_binaryop		' compile zpu_and
+{07}                    or      0, #zpu_binaryop		' compile zpu_or
+{08}                    cmp     zpu_load, #emit_literal2		' compile zpu_load
+{09}                    cmp	zpu_not,  #emit_literal2		' compile zpu_not
+{0A}                    cmp     zpu_flip, #emit_literal2		' compile zpu_flip
+{0B}                    cmp     zpu_nop,  #emit_literal2		' compile zpu_nop
+{0C}                    cmp     zpu_store, #emit_literal2	' compile zpu_store
+{0C}                    cmp     zpu_popsp, #emit_literal2	' compile zpu_popsp
+{0E}                    cmp     zpu_illegal, #emit_literal2	' compile zpu_illegal
+{0F}                    cmp     zpu_illegal, #emit_literal2	' compile zpu_illegal
+
+{10}                    cmp     zpu_addsp0, #emit_literal2	' compile zpu_addsp with 0 offset
+{11}                    cmp     0, #zpu_addsp
+{12}                    cmp     0, #zpu_addsp
+{13}                    cmp     0, #zpu_addsp
+{14}                    cmp     0, #zpu_addsp
+{15}                    cmp     0, #zpu_addsp
+{16}                    cmp     0, #zpu_addsp
+{17}                    cmp     0, #zpu_addsp
+{18}                    cmp     0, #zpu_addsp
+{19}                    cmp     0, #zpu_addsp
+{1A}                    cmp     0, #zpu_addsp
+{1B}                    cmp     0, #zpu_addsp
+{1C}                    cmp     0, #zpu_addsp
+{1D}                    cmp     0, #zpu_addsp
+{1E}                    cmp     0, #zpu_addsp
+{1F}                    cmp     0, #zpu_addsp
+
+{20}                    cmp     0, #zpu_emulate ' reset??
+{21}                    cmp     0, #zpu_emulate ' interrupt??
+{22}                    cmp     0, #zpu_emulate ' loadh
+{23}                    cmp     0, #zpu_emulate ' storeh
+{24}        if_b        cmp     cmp_signed_impl,   #zpu_cmp ' lessthan
+{25}        if_be       cmp     cmp_signed_impl,   #zpu_cmp ' lessthanorequal
+{26}        if_b        cmp     cmp_unsigned_impl, #zpu_cmp ' ulessthan
+{27}        if_be       cmp     cmp_unsigned_impl, #zpu_cmp ' ulessthanorequal
+{28}                    cmp     0, #zpu_emulate ' swap
+{29}                    cmp     0, #zpu_emulate ' slowmult
+{2A}                    shr     0, #zpu_binaryop ' lshiftright
+{2B}                    shl     0, #zpu_binaryop ' ashiftleft
+{2C}                    sar     0, #zpu_binaryop ' ashiftright
+{2D}                    cmp     0, #zpu_emulate ' call
+{2E}        if_z        cmp     cmp_unsigned_impl, #zpu_cmp ' eq
+{2F}        if_nz       cmp     cmp_unsigned_impl, #zpu_cmp ' neq
+
+{30}                    cmp     zpu_neg, #emit_literal2	' compile zpu_neg
+{31}                    sub     0, #zpu_binaryop ' sub
+{32}                    xor     0, #zpu_binaryop ' xor
+{33}                    cmp     0, #zpu_emulate ' loadb
+{34}                    cmp     0, #zpu_emulate ' storeb
+{35}                    cmp     0, #zpu_emulate ' div
+{36}                    cmp     0, #zpu_emulate ' mod
+{37}        if_z        cmp     cmpbranch, #zpu_dobranch ' eqbranch
+{38}        if_nz       cmp     cmpbranch, #zpu_dobranch ' neqbranch
+{39}                    cmp     0, #zpu_emulate ' poppcrel
+{3A}                    cmp     0, #zpu_emulate ' config
+{3B}                    cmp     zpu_pushpc, #emit_literal2	' compile pushpc
+'''{3C}                    cmp     zpu_syscall, #emit_literal2 	' compile syscall
+{3C}                    cmp     zpu_breakpoint, #emit_literal2 	' compile syscall
+{3D}                    cmp     zpu_pushspadd,  #emit_literal2  ' compile pushspadd
+{3E}                    cmp     stub_mult16x16, #emit_literal2	' compile mult16x16
+{3F}                    cmp     zpu_callrelpc,  #emit_literal2 	' compile callrelpc
+
+			org     0
 enter
                         jmp     #init
 			
 '------------------------------------------------------------------------------
 
 			'' just compile the 2 instructions pointed to by the dest field
-zpu_literal2
+emit_literal2
 			shr	aux_opcode, #9	' extract dest field
 			movs	ccopy, aux_opcode
 			jmp	#ccopy_next
@@ -838,84 +906,6 @@ prev_cache_base		long	icache1
 
 '------------------------------------------------------------------------------
                         fit     $1F0  ' $198 works, $170 would be ideal, $1F0 is whole thing
-
-			long
-dispatch_table
-' this is not a traditional jmp table, it's an indirect one
-' the bottom 9 bits (the source field) encodes the destination for
-' the jump, but the other bits can also encode information about
-' the instruction as well
-' the whole 32 bits is placed in the aux_opcode register
-'
-{00}                    abs     zpu_breakpoint, #zpu_literal2	' compile zpu_breakpoint
-{01}                    add     zpu_illegal, #zpu_literal2	' compile zpu_illegal
-{02}                    adds     zpu_pushsp,  #zpu_literal2	' compile zpu_pushsp
-{03}                    shl     zpu_illegal, #zpu_literal2	' compile zpu_illegal
-{04}                    mov     zpu_poppc, #zpu_literal2	' compile zpu_poppc
-{05}                    add     0, #zpu_binaryop		' compile zpu_add
-{06}                    and     0, #zpu_binaryop		' compile zpu_and
-{07}                    or      0, #zpu_binaryop		' compile zpu_or
-{08}                    mov     zpu_load, #zpu_literal2		' compile zpu_load
-{09}                    mov	zpu_not,  #zpu_literal2		' compile zpu_not
-{0A}                    mov     zpu_flip, #zpu_literal2		' compile zpu_flip
-{0B}                    rol     zpu_nop,  #zpu_literal2		' compile zpu_nop
-{0C}                    mov     zpu_store, #zpu_literal2	' compile zpu_store
-{0C}                    mov     zpu_popsp, #zpu_literal2	' compile zpu_popsp
-{0E}                    mov     zpu_illegal, #zpu_literal2	' compile zpu_illegal
-{0F}                    mov     zpu_illegal, #zpu_literal2	' compile zpu_illegal
-
-{10}                    mov     zpu_addsp0, #zpu_literal2	' compile zpu_addsp with 0 offset
-{11}                    jmp     #zpu_addsp
-{12}                    jmp     #zpu_addsp
-{13}                    jmp     #zpu_addsp
-{14}                    jmp     #zpu_addsp
-{15}                    jmp     #zpu_addsp
-{16}                    jmp     #zpu_addsp
-{17}                    jmp     #zpu_addsp
-{18}                    jmp     #zpu_addsp
-{19}                    jmp     #zpu_addsp
-{1A}                    jmp     #zpu_addsp
-{1B}                    jmp     #zpu_addsp
-{1C}                    jmp     #zpu_addsp
-{1D}                    jmp     #zpu_addsp
-{1E}                    jmp     #zpu_addsp
-{1F}                    jmp     #zpu_addsp
-
-{20}                    jmp     #zpu_emulate ' reset??
-{21}                    jmp     #zpu_emulate ' interrupt??
-{22}                    jmp     #zpu_emulate ' loadh
-{23}                    jmp     #zpu_emulate ' storeh
-{24}        if_b        mov     cmp_signed_impl, #zpu_cmp ' lessthan
-{25}        if_be       mov     cmp_signed_impl, #zpu_cmp ' lessthanorequal
-{26}        if_b        mov     cmp_unsigned_impl, #zpu_cmp ' ulessthan
-{27}        if_be       mov     cmp_unsigned_impl, #zpu_cmp ' ulessthanorequal
-{28}                    jmp     #zpu_emulate ' swap
-{29}                    jmp     #zpu_emulate ' slowmult
-{2A}                    shr     0, #zpu_binaryop ' lshiftright
-{2B}                    shl     0, #zpu_binaryop ' ashiftleft
-{2C}                    sar     0, #zpu_binaryop ' ashiftright
-{2D}                    jmp     #zpu_emulate ' call
-{2E}        if_z        mov     cmp_unsigned_impl, #zpu_cmp ' eq
-{2F}        if_nz       mov     cmp_unsigned_impl, #zpu_cmp ' neq
-
-{30}                    mov     zpu_neg, #zpu_literal2	' compile zpu_neg
-{31}                    sub     0, #zpu_binaryop ' sub
-{32}                    xor     0, #zpu_binaryop ' xor
-{33}                    jmp     #zpu_emulate ' loadb
-{34}                    jmp     #zpu_emulate ' storeb
-{35}                    jmp     #zpu_emulate ' div
-{36}                    jmp     #zpu_emulate ' mod
-{37}        if_z        mov     cmpbranch, #zpu_dobranch ' eqbranch
-{38}        if_nz       mov     cmpbranch, #zpu_dobranch ' neqbranch
-{39}                    jmp     #zpu_emulate ' poppcrel
-{3A}                    jmp     #zpu_emulate ' config
-{3B}                    mov     zpu_pushpc, #zpu_literal2	' compile pushpc
-'''{3C}                    mov     zpu_syscall, #zpu_literal2 	' compile syscall
-{3C}                    mov     zpu_breakpoint, #zpu_literal2 	' compile syscall
-{3D}                    mov     zpu_pushspadd, #zpu_literal2    ' compile pushspadd
-{3E}                    mov     stub_mult16x16, #zpu_literal2	' compile mult16x16
-{3F}                    mov     zpu_callrelpc, #zpu_literal2 	' compile callrelpc
-
 
 '---------------------------------------------------------------------------------------------------------
 'The End.
