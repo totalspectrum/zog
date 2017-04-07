@@ -343,27 +343,28 @@ storesp_call		call	#imp_storesp
 '' NEG = %101001_001_0_1111_000000000_000000000
 '' so we can mux on 1 bit to toggle between them
 ''
-mux_mask		long	%000001_000_0_0000_000000000_000000000
-first_im
-			mov	im_flag, #later_im
+mov_neg_mask		long	%000001_000_0_0000_000000000_000000000
+
+emit_first_im
+			mov	im_flag, #emit_later_im
 			shl     address, #(32 - 7)
                         sar     address, #(32 - 7)
 			abs	address, address wc
-			muxc	im_set_impl+1, mux_mask	    ' set NEG if c, MOV if nc
-			movs	im_set_impl+1, address
-			movs	ccopy, #im_set_impl
+			muxc	pat_first_im+1, mov_neg_mask	    ' set NEG if c, MOV if nc
+			movs	pat_first_im+1, address
+			movs	ccopy, #pat_first_im
 			jmp	#ccopy_next
 
-im_set_impl
+pat_first_im
 			call	#push_tos
 			mov	tos, #0-0	' this could become a neg
 
-later_im
+emit_later_im
                         and     address, #$7F
-                       	movs    later_set_impl+1, address
-			movs	ccopy, #later_set_impl
+                       	movs    pat_later_im+1, address
+			movs	ccopy, #pat_later_im
                         jmp     #ccopy_next
-later_set_impl
+pat_later_im
 			shl	tos, #7
 			or	tos, #0-0
 
@@ -768,9 +769,9 @@ fill
 			sub	memp, #1
 			xor	memp, #%11		'XOR for endianness
 			rdbyte	opcode, memp
-			mov	im_flag, #first_im
+			mov	im_flag, #emit_first_im
 			test	opcode, #$80 wz
-    if_nz		mov	im_flag, #later_im
+    if_nz		mov	im_flag, #emit_later_im
 
 transi
 			'' translate one instruction
@@ -786,8 +787,8 @@ transi
 			mov	cnt, #2
 
                         test    opcode, #$80 wz          'Check for IM instruction
-              if_nz     jmp     im_flag
-	      		mov	im_flag, #first_im
+              if_nz     jmp     im_flag	     ' compile whichver IM instruction variant we need
+	      		mov	im_flag, #emit_first_im
                         cmp     opcode, #$60 wz, wc       'Check for LOADSP instruction
         if_z_or_nc      jmp     #emit_loadsp
 
@@ -895,7 +896,7 @@ debug_addr              mov     debug_addr, temp     'HUB address of debug regis
 aux_opcode		mov	cur_pc, #0  	     ' implementation data for translating current opcode byte
 			jmp	#set_pc
 
-im_flag			long first_im    ' last instruction was im
+im_flag			long	emit_first_im    ' selects pattern for IM
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
