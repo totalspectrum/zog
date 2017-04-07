@@ -163,39 +163,43 @@ dispatch_table
 ' "compiler", but I suppose whichever opcode is 0 would have made sense
 ' too.
 '
-{00}                    cmp     zpu_breakpoint, #emit_literal2	' compile zpu_breakpoint
-{01}                    cmp     zpu_illegal,    #emit_literal2	' compile zpu_illegal
-{02}                    cmp     zpu_pushsp,     #emit_literal2	' compile zpu_pushsp
-{03}                    cmp     zpu_illegal,    #emit_literal2	' compile zpu_illegal
-{04}                    cmp     zpu_poppc,      #emit_literal2	' compile zpu_poppc
-{05}                    add     0, #zpu_binaryop		' compile zpu_add
-{06}                    and     0, #zpu_binaryop		' compile zpu_and
-{07}                    or      0, #zpu_binaryop		' compile zpu_or
-{08}                    cmp     zpu_load, #emit_literal2		' compile zpu_load
-{09}                    cmp	zpu_not,  #emit_literal2		' compile zpu_not
-{0A}                    cmp     zpu_flip, #emit_literal2		' compile zpu_flip
-{0B}                    cmp     zpu_nop,  #emit_literal2		' compile zpu_nop
-{0C}                    cmp     zpu_store, #emit_literal2	' compile zpu_store
-{0C}                    cmp     zpu_popsp, #emit_literal2	' compile zpu_popsp
-{0E}                    cmp     zpu_illegal, #emit_literal2	' compile zpu_illegal
-{0F}                    cmp     zpu_illegal, #emit_literal2	' compile zpu_illegal
+' Naming convention:
+'  pat_xxx is the pattern for instruction xxx, and is copied directly to the cache
+'  imp_xxx is any local subroutine called by pat_xxx
+'
+{00}                    cmp     pat_breakpoint, #emit_literal2	' compile zpu_breakpoint
+{01}                    cmp     pat_illegal,    #emit_literal2	' compile zpu_illegal
+{02}                    cmp     pat_pushsp,     #emit_literal2	' compile zpu_pushsp
+{03}                    cmp     pat_illegal,    #emit_literal2	' compile zpu_illegal
+{04}                    cmp     pat_poppc,      #emit_literal2	' compile zpu_poppc
+{05}                    add     0, #emit_binaryop		' compile zpu_add
+{06}                    and     0, #emit_binaryop		' compile zpu_and
+{07}                    or      0, #emit_binaryop		' compile zpu_or
+{08}                    cmp     pat_load, #emit_literal2		' compile zpu_load
+{09}                    cmp	pat_not,  #emit_literal2		' compile zpu_not
+{0A}                    cmp     pat_flip, #emit_literal2		' compile zpu_flip
+{0B}                    cmp     pat_nop,  #emit_literal2		' compile zpu_nop
+{0C}                    cmp     pat_store, #emit_literal2	' compile zpu_store
+{0C}                    cmp     pat_popsp, #emit_literal2	' compile zpu_popsp
+{0E}                    cmp     pat_illegal, #emit_literal2	' compile zpu_illegal
+{0F}                    cmp     pat_illegal, #emit_literal2	' compile zpu_illegal
 
-{10}                    cmp     zpu_addsp0, #emit_literal2	' compile zpu_addsp with 0 offset
-{11}                    cmp     0, #zpu_addsp
-{12}                    cmp     0, #zpu_addsp
-{13}                    cmp     0, #zpu_addsp
-{14}                    cmp     0, #zpu_addsp
-{15}                    cmp     0, #zpu_addsp
-{16}                    cmp     0, #zpu_addsp
-{17}                    cmp     0, #zpu_addsp
-{18}                    cmp     0, #zpu_addsp
-{19}                    cmp     0, #zpu_addsp
-{1A}                    cmp     0, #zpu_addsp
-{1B}                    cmp     0, #zpu_addsp
-{1C}                    cmp     0, #zpu_addsp
-{1D}                    cmp     0, #zpu_addsp
-{1E}                    cmp     0, #zpu_addsp
-{1F}                    cmp     0, #zpu_addsp
+{10}                    cmp     pat_addsp0, #emit_literal2	' compile zpu_addsp with 0 offset
+{11}                    cmp     0, #emit_addsp
+{12}                    cmp     0, #emit_addsp
+{13}                    cmp     0, #emit_addsp
+{14}                    cmp     0, #emit_addsp
+{15}                    cmp     0, #emit_addsp
+{16}                    cmp     0, #emit_addsp
+{17}                    cmp     0, #emit_addsp
+{18}                    cmp     0, #emit_addsp
+{19}                    cmp     0, #emit_addsp
+{1A}                    cmp     0, #emit_addsp
+{1B}                    cmp     0, #emit_addsp
+{1C}                    cmp     0, #emit_addsp
+{1D}                    cmp     0, #emit_addsp
+{1E}                    cmp     0, #emit_addsp
+{1F}                    cmp     0, #emit_addsp
 
 {20}                    cmp     0, #zpu_emulate ' reset??
 {21}                    cmp     0, #zpu_emulate ' interrupt??
@@ -207,16 +211,16 @@ dispatch_table
 {27}        if_be       cmp     cmp_unsigned_impl, #zpu_cmp ' ulessthanorequal
 {28}                    cmp     0, #zpu_emulate ' swap
 {29}                    cmp     0, #zpu_emulate ' slowmult
-{2A}                    shr     0, #zpu_binaryop ' lshiftright
-{2B}                    shl     0, #zpu_binaryop ' ashiftleft
-{2C}                    sar     0, #zpu_binaryop ' ashiftright
+{2A}                    shr     0, #emit_binaryop ' lshiftright
+{2B}                    shl     0, #emit_binaryop ' ashiftleft
+{2C}                    sar     0, #emit_binaryop ' ashiftright
 {2D}                    cmp     0, #zpu_emulate ' call
 {2E}        if_z        cmp     cmp_unsigned_impl, #zpu_cmp ' eq
 {2F}        if_nz       cmp     cmp_unsigned_impl, #zpu_cmp ' neq
 
-{30}                    cmp     zpu_neg, #emit_literal2	' compile zpu_neg
-{31}                    sub     0, #zpu_binaryop ' sub
-{32}                    xor     0, #zpu_binaryop ' xor
+{30}                    cmp     pat_neg, #emit_literal2	' compile zpu_neg
+{31}                    sub     0, #emit_binaryop ' sub
+{32}                    xor     0, #emit_binaryop ' xor
 {33}                    cmp     0, #zpu_emulate ' loadb
 {34}                    cmp     0, #zpu_emulate ' storeb
 {35}                    cmp     0, #zpu_emulate ' div
@@ -227,7 +231,7 @@ dispatch_table
 {3A}                    cmp     0, #zpu_emulate ' config
 {3B}                    cmp     zpu_pushpc, #emit_literal2	' compile pushpc
 '''{3C}                    cmp     zpu_syscall, #emit_literal2 	' compile syscall
-{3C}                    cmp     zpu_breakpoint, #emit_literal2 	' compile syscall
+{3C}                    cmp     pat_breakpoint, #emit_literal2 	' compile syscall
 {3D}                    cmp     zpu_pushspadd,  #emit_literal2  ' compile pushspadd
 {3E}                    cmp     stub_mult16x16, #emit_literal2	' compile mult16x16
 {3F}                    cmp     zpu_callrelpc,  #emit_literal2 	' compile callrelpc
@@ -237,15 +241,36 @@ enter
                         jmp     #init
 			
 '------------------------------------------------------------------------------
+' COMPILATION ROUTINES
+'------------------------------------------------------------------------------
 
-			'' just compile the 2 instructions pointed to by the dest field
+'' just compile the 2 instructions pointed to by the dest field
 emit_literal2
 			shr	aux_opcode, #9	' extract dest field
 			movs	ccopy, aux_opcode
 			jmp	#ccopy_next
 			
-'------------------------------------------------------------------------------
-'Opcode handlers.
+'' compile a binary operator
+'' the instruction in the dispatch table (found in aux_opcode) is the one
+'' we want to emit
+emit_binaryop
+			shr	aux_opcode, #23		' extract instruction field
+			movi	pat_binaryop+1, aux_opcode
+			movs	ccopy, #pat_binaryop	' set up to copy instructions
+			jmp	#ccopy_next		' copy them into place
+pat_binaryop
+			call	#pop_tos
+			add	tos, data	' "add" will be replaced here by the generic binary operator
+			
+
+
+emit_addsp
+			and	address, #$0F
+            		shl	address, #2
+	    		movs	pat_addsp, address
+	    		movs	ccopy, #pat_addsp
+			jmp	#ccopy_next
+
 zpu_callrelpc
 			mov	data, tos
 			jmpret	intern_pc, #call_pc_rel	'' uses get_next_pc, needs internal pc
@@ -283,33 +308,89 @@ later_set_impl
 			shl	tos, #7
 			or	tos, #0-0
 
-zpu_breakpoint
+'------------------------------------------------------------------------------
+' PATTERNS FOR RUNTIME, together with any support functions
+'------------------------------------------------------------------------------
+
+pat_breakpoint
 			jmpret	intern_pc, #dummy	'' break calls get_next_pc
                         call    #break
 
+pat_illegal
+			call	#break
+pat_nop					'' share a nop here
+			nop
+			nop
 
-zpu_addsp0
+pat_pushsp
+                        call    #push_tos
+			call	#imp_pushsp
+			'' the 2 instructions above will execute out of cache,
+			'' then continue here
+imp_pushsp
+                        mov     tos, sp
+			sub	tos, zpu_memory_addr
+                        add     tos, #4
+imp_pushsp_ret
+			ret
+
+pat_poppc
+                        call    #pop_tos
+                        jmp     #set_pc_data
+
+pat_addsp0
 			add	tos, tos
 			nop
-zpu_addsp
-			and	address, #$0F
-            		shl	address, #2
-	    		movs	buildasp, address
-	    		movs	ccopy, #buildasp
-			jmp	#ccopy_next
-
-buildasp
+pat_addsp
 			mov	address, #0-0
-			call	#zpu_addsp_impl
-
-zpu_addsp_impl
+			call	#imp_addsp
+			'' the 2 instructions above will execute out of cache,
+			'' then continue here
+imp_addsp
 			add	address, sp
 			rdlong	data, address
 			add	tos, data
-zpu_addsp_impl_ret
+imp_addsp_ret
+			ret
+
+pat_load
+                        mov     address, tos
+			call	#read_long
+
+pat_not
+                        xor     tos, minus_one
+                        nop
+			
+pat_flip
+                        rev     tos, #32
+			nop
+
+pat_store
+                        call    #pop_tos
+			call	#imp_store
+			'' the 2 instructions above will execute out of cache,
+			'' then continue here
+imp_store
+                        mov     address, data
+                        call    #pop_tos
+                        call    #write_long
+imp_store_ret
+                        ret
+
+pat_popsp
+                        mov     sp, tos
+			call	#imp_popsp
+imp_popsp
+			add	sp, zpu_memory_addr
+			rdlong	tos, sp
+imp_popsp_ret
 			ret
 
 
+
+pat_neg
+			neg	tos,tos
+			nop
 zpu_loadsp
 			mov	build2b, loadsp_call
 			jmp	#zpu_build2
@@ -353,22 +434,6 @@ zpu_pushpc_impl
 			sub	tos, #1
                         jmp	intern_pc
 
-zpu_binaryop
-			shr	aux_opcode, #23		' extract instruction field
-			movi	build_op+1, aux_opcode
-			movs	ccopy, #build_op	' set up to copy instructions
-			jmp	#ccopy_next		' copy them into place
-
-build_op
-			call	#pop_tos
-			add	tos, data
-
-zpu_not
-                        xor     tos, minus_one
-                        nop
-zpu_neg
-			neg	tos,tos
-			nop
 
 zpu_dobranch
 			'' replace condition in template
@@ -427,39 +492,6 @@ cmp_signed_impl
 con_mask		long	$f<<18
 
 
-zpu_load
-                        mov     address, tos
-			call	#read_long
-
-zpu_store
-                        call    #pop_tos
-			call	#zpu_store_impl
-zpu_store_impl
-                        mov     address, data
-                        call    #pop_tos
-                        call    #write_long
-zpu_store_impl_ret
-                        ret
-
-zpu_poppc
-                        call    #pop_tos
-                        jmp     #set_pc_data
-
-zpu_flip
-                        rev     tos, #32
-			nop
-
-zpu_pushsp
-                        call    #push_tos
-			call	#zpu_pushsp_impl
-
-zpu_pushsp_impl
-                        mov     tos, sp
-			sub	tos, zpu_memory_addr
-                        add     tos, #4
-zpu_pushsp_impl_ret
-			ret
-
 zpu_pushspadd
 			shl	tos, #2
 			call	#zpu_pushspadd_impl
@@ -470,14 +502,6 @@ zpu_pushspadd_impl
 zpu_pushspadd_impl_ret
 			ret
 
-zpu_popsp
-                        mov     sp, tos
-			call	#zpu_popsp_impl
-zpu_popsp_impl
-			add	sp, zpu_memory_addr
-			rdlong	tos, sp
-zpu_popsp_impl_ret
-			ret
 
 stub_mult16x16
                         call    #pop_tos
@@ -503,11 +527,6 @@ zpu_emulate_impl
                         jmp     #set_pc
 
 div_zero_error
-zpu_illegal
-			call	#break
-zpu_nop					'' share a nop here
-			nop
-			nop
 			
 '------------------------------------------------------------------------------
 
