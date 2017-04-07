@@ -201,34 +201,34 @@ dispatch_table
 {1E}                    cmp     0, #emit_addsp
 {1F}                    cmp     0, #emit_addsp
 
-{20}                    cmp     0, #zpu_emulate ' reset??
-{21}                    cmp     0, #zpu_emulate ' interrupt??
-{22}                    cmp     0, #zpu_emulate ' loadh
-{23}                    cmp     0, #zpu_emulate ' storeh
+{20}                    cmp     0, #emit_emulate ' reset??
+{21}                    cmp     0, #emit_emulate ' interrupt??
+{22}                    cmp     0, #emit_emulate ' loadh
+{23}                    cmp     0, #emit_emulate ' storeh
 {24}        if_b        cmp     imp_cmp_signed,   #emit_cmp ' lessthan
 {25}        if_be       cmp     imp_cmp_signed,   #emit_cmp ' lessthanorequal
 {26}        if_b        cmp     imp_cmp_unsigned, #emit_cmp ' ulessthan
 {27}        if_be       cmp     imp_cmp_unsigned, #emit_cmp ' ulessthanorequal
-{28}                    cmp     0, #zpu_emulate ' swap
-{29}                    cmp     0, #zpu_emulate ' slowmult
+{28}                    cmp     0, #emit_emulate ' swap
+{29}                    cmp     0, #emit_emulate ' slowmult
 {2A}                    shr     0, #emit_binaryop ' lshiftright
 {2B}                    shl     0, #emit_binaryop ' ashiftleft
 {2C}                    sar     0, #emit_binaryop ' ashiftright
-{2D}                    cmp     0, #zpu_emulate ' call
+{2D}                    cmp     0, #emit_emulate ' call
 {2E}        if_z        cmp     imp_cmp_unsigned, #emit_cmp ' eq
 {2F}        if_nz       cmp     imp_cmp_unsigned, #emit_cmp ' neq
 
 {30}                    cmp     pat_neg, #emit_literal2	' compile zpu_neg
 {31}                    sub     0, #emit_binaryop ' sub
 {32}                    xor     0, #emit_binaryop ' xor
-{33}                    cmp     0, #zpu_emulate ' loadb
-{34}                    cmp     0, #zpu_emulate ' storeb
-{35}                    cmp     0, #zpu_emulate ' div
-{36}                    cmp     0, #zpu_emulate ' mod
+{33}                    cmp     0, #emit_emulate ' loadb
+{34}                    cmp     0, #emit_emulate ' storeb
+{35}                    cmp     0, #emit_emulate ' div
+{36}                    cmp     0, #emit_emulate ' mod
 {37}        if_z        cmp     cmpbranch, #zpu_dobranch ' eqbranch
 {38}        if_nz       cmp     cmpbranch, #zpu_dobranch ' neqbranch
-{39}                    cmp     0, #zpu_emulate ' poppcrel
-{3A}                    cmp     0, #zpu_emulate ' config
+{39}                    cmp     0, #emit_emulate ' poppcrel
+{3A}                    cmp     0, #emit_emulate ' config
 {3B}                    cmp     zpu_pushpc, #emit_literal2	' compile pushpc
 '''{3C}                    cmp     zpu_syscall, #emit_literal2 	' compile syscall
 {3C}                    cmp     pat_breakpoint, #emit_literal2 	' compile syscall
@@ -270,6 +270,14 @@ emit_addsp
 	    		movs	pat_addsp, address
 	    		movs	ccopy, #pat_addsp
 			jmp	#ccopy_next
+
+			'' compile an emulate sequence
+emit_emulate
+			sub	address, #32
+			movs	pat_emulate, address
+			movs	ccopy, #pat_emulate
+			jmp	#ccopy_next
+			
 
 			' compile a signed or unsigned comparison
 			' function to call (cmp_unsigned_impl or
@@ -338,6 +346,7 @@ pat_breakpoint
 			jmpret	intern_pc, #dummy	'' break calls get_next_pc
                         call    #break
 
+div_zero_error
 pat_illegal
 			call	#break
 pat_nop					'' share a nop here
@@ -408,6 +417,18 @@ imp_popsp
 imp_popsp_ret
 			ret
 
+
+pat_emulate
+			mov	address, #0-0
+			jmpret	intern_pc, #imp_emulate  '' get_next_pc needs intern_pc set
+
+imp_emulate
+			call	#get_next_pc
+			call    #push_tos
+                        mov     tos, cur_pc               'Push return address
+			shl	address, #5
+                        mov     cur_pc, address                'Op code to PC
+                        jmp     #set_pc
 
 
 pat_neg
@@ -510,27 +531,6 @@ stub_mult16x16
                         call    #pop_tos
 			call	#zpu_mult16x16
 
-			'' compile an emulate sequence
-zpu_emulate
-			sub	address, #32
-			movs	builde, address
-			movs	ccopy, #builde
-			jmp	#ccopy_next
-			
-builde
-			mov	address, #0-0
-			jmpret	intern_pc, #zpu_emulate_impl  '' get_next_pc needs internal pc
-
-zpu_emulate_impl
-			call	#get_next_pc
-			call    #push_tos
-                        mov     tos, cur_pc               'Push return address
-			shl	address, #5
-                        mov     cur_pc, address                'Op code to PC
-                        jmp     #set_pc
-
-div_zero_error
-			
 '------------------------------------------------------------------------------
 
 ' dummy routine to set up intern_pc
