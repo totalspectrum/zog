@@ -229,12 +229,12 @@ dispatch_table
 {38}        if_nz       cmp     cmpbranch, #zpu_dobranch ' neqbranch
 {39}                    cmp     0, #emit_emulate ' poppcrel
 {3A}                    cmp     0, #emit_emulate ' config
-{3B}                    cmp     zpu_pushpc, #emit_literal2	' compile pushpc
-'''{3C}                    cmp     zpu_syscall, #emit_literal2 	' compile syscall
+{3B}                    cmp     pat_pushpc, #emit_literal2	' compile pushpc
+'''{3C}                    cmp     pat_syscall, #emit_literal2 	' compile syscall
 {3C}                    cmp     pat_breakpoint, #emit_literal2 	' compile syscall
-{3D}                    cmp     zpu_pushspadd,  #emit_literal2  ' compile pushspadd
-{3E}                    cmp     stub_mult16x16, #emit_literal2	' compile mult16x16
-{3F}                    cmp     zpu_callrelpc,  #emit_literal2 	' compile callrelpc
+{3D}                    cmp     pat_pushspadd,  #emit_literal2  ' compile pushspadd
+{3E}                    cmp     pat_mult16x16, #emit_literal2	' compile mult16x16
+{3F}                    cmp     pat_callrelpc,  #emit_literal2 	' compile callrelpc
 
 			org     0
 enter
@@ -301,9 +301,38 @@ emit_cmp
 con_mask		long	$f<<18
 
 
-zpu_callrelpc
-			mov	data, tos
-			jmpret	intern_pc, #call_pc_rel	'' uses get_next_pc, needs internal pc
+emit_loadsp
+			mov	pat_loadstoresp+1, loadsp_call
+			jmp	#loadst_do
+emit_storesp
+			mov	pat_loadstoresp+1, storesp_call
+loadst_do
+                        and     address, #$1F
+                        xor     address, #$10           'Trust me, you need this.
+                        shl     address, #2
+			movs	pat_loadstoresp, address
+			movs	ccopy, #pat_loadstoresp
+			jmp	#ccopy_next
+			
+pat_loadstoresp
+			mov	address, #0-0
+			call	#imp_loadsp	'' this is actually a dummy that will be overwritten
+
+imp_loadsp
+                        add     address, sp
+                        call    #push_tos
+                        rdlong	tos, address
+imp_loadsp_ret
+                        ret
+
+imp_storesp
+                        add     address, sp
+                        wrlong	tos, address
+			jmp	#pop_tos	'' will return correctly from there
+			'' imp_storesp_ret is at pop_tos_ret
+			
+loadsp_call		call	#imp_loadsp
+storesp_call		call	#imp_storesp
 
 
 '' compile zpu_im instructions
@@ -434,48 +463,19 @@ imp_emulate
 pat_neg
 			neg	tos,tos
 			nop
-zpu_loadsp
-			mov	build2b, loadsp_call
-			jmp	#zpu_build2
-zpu_storesp
-			mov	build2b, storesp_call
-zpu_build2
-                        and     address, #$1F
-                        xor     address, #$10           'Trust me, you need this.
-                        shl     address, #2
-			movs	build2, address
-			movs	ccopy, #build2
-			jmp	#ccopy_next
-			
-build2
-			mov	address, #0-0
-build2b
-			call	#zpu_loadsp_impl	'' this is actually a dummy that will be overwritten
-
-zpu_loadsp_impl
-                        add     address, sp
+pat_pushpc
                         call    #push_tos
-                        rdlong	tos, address
-zpu_loadsp_impl_ret
-                        ret
-
-loadsp_call		call	#zpu_loadsp_impl
-storesp_call		call	#zpu_storesp_impl
-
-zpu_storesp_impl
-                        add     address, sp
-                        wrlong	tos, address
-			jmp	#pop_tos	'' will return correctly from there
-
-
-zpu_pushpc
-                        call    #push_tos
-			jmpret	intern_pc, #zpu_pushpc_impl  '' set intern_pc for get_next_pc
-zpu_pushpc_impl
+			jmpret	intern_pc, #imp_pushpc  '' set intern_pc for get_next_pc
+imp_pushpc
 			call	#get_next_pc
                         mov     tos, cur_pc
 			sub	tos, #1
                         jmp	intern_pc
+
+
+pat_callrelpc
+			mov	data, tos
+			jmpret	intern_pc, #call_pc_rel	'' uses get_next_pc, needs internal pc
 
 
 zpu_dobranch
@@ -516,18 +516,18 @@ imp_cmp_signed
 			jmp	cmp_ret
 
 
-zpu_pushspadd
+pat_pushspadd
 			shl	tos, #2
-			call	#zpu_pushspadd_impl
+			call	#imp_pushspadd
 
-zpu_pushspadd_impl
+imp_pushspadd
 			add	tos, sp
 			sub	tos, zpu_memory_addr
-zpu_pushspadd_impl_ret
+imp_pushspadd_ret
 			ret
 
 
-stub_mult16x16
+pat_mult16x16
                         call    #pop_tos
 			call	#zpu_mult16x16
 
@@ -617,7 +617,7 @@ discard_tos
 			rdlong  tos, sp
 discard_tos_ret
 pop_tos_ret
-zpu_storesp_impl_ret
+imp_storesp_ret
 			ret
 
 'Read a LONG from ZPU memory at "address" into "tos"
@@ -789,10 +789,10 @@ transi
               if_nz     jmp     im_flag
 	      		mov	im_flag, #first_im
                         cmp     opcode, #$60 wz, wc       'Check for LOADSP instruction
-        if_z_or_nc      jmp     #zpu_loadsp
+        if_z_or_nc      jmp     #emit_loadsp
 
                         cmp     opcode, #$40 wz, wc       'Check for STORESPinstruction
-        if_z_or_nc      jmp     #zpu_storesp
+        if_z_or_nc      jmp     #emit_storesp
 
 			mov	aux_opcode, opcode
 			shl	aux_opcode, #2			' convert to byte address
