@@ -91,6 +91,7 @@ CON
 '' define TWO_LINE_CACHE for a 2 way cache
 '' otherwise we have only a single line
 #define TWO_LINE_CACHE
+'CACHE_LINE_SIZE = 16
 CACHE_LINE_SIZE = 32
 
 'CACHE_LINE_SIZE = 64
@@ -235,6 +236,11 @@ dispatch_table
 {3D}                    cmp     pat_pushspadd,  #emit_literal2  ' compile pushspadd
 {3E}                    cmp     pat_mult16x16, #emit_literal2	' compile mult16x16
 {3F}                    cmp     pat_callrelpc,  #emit_literal2 	' compile callrelpc
+
+
+'------------------------------------------------------------------------------
+' actual COG code starts below
+'------------------------------------------------------------------------------
 
 			org     0
 enter
