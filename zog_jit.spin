@@ -226,8 +226,8 @@ dispatch_table
 {34}                    cmp     0, #emit_emulate ' storeb
 {35}                    cmp     0, #emit_emulate ' div
 {36}                    cmp     0, #emit_emulate ' mod
-{37}        if_z        cmp     cmpbranch, #zpu_dobranch ' eqbranch
-{38}        if_nz       cmp     cmpbranch, #zpu_dobranch ' neqbranch
+{37}        if_z        cmp     cmpbranch, #emit_condbranch ' eqbranch
+{38}        if_nz       cmp     cmpbranch, #emit_condbranch ' neqbranch
 {39}                    cmp     0, #emit_emulate ' poppcrel
 {3A}                    cmp     0, #emit_emulate ' config
 {3B}                    cmp     pat_pushpc, #emit_literal2	' compile pushpc
@@ -285,6 +285,29 @@ emit_emulate
 			jmp	#ccopy_next
 			
 
+''
+'' code for compiling conditional branches
+''
+emit_condbranch
+			'' replace condition in template
+			and	aux_opcode, con_mask
+			andn	pat_condbranch+1, con_mask
+			or	pat_condbranch+1, aux_opcode
+			'' and copy instructions
+			movs   ccopy, #pat_condbranch
+			jmp    #ccopy_next
+
+pat_condbranch
+			jmpret	intern_pc, #imp_condbranch  '' set intern_pc for get_next_pc
+  if_z			jmp	#set_pc_rel_data
+
+imp_condbranch
+			call	#get_next_pc
+			call	#pop_tos
+			cmp	tos, #0 wz	'' condition code used when we return
+  			call	#discard_tos
+  			jmp	intern_pc
+			
 			' compile a signed or unsigned comparison
 			' function to call (cmp_unsigned_impl or
 			' cmp_signed_impl) is in dest field of aux_opcode
@@ -485,26 +508,6 @@ pat_callrelpc
 			jmpret	intern_pc, #call_pc_rel	'' uses get_next_pc, needs internal pc
 
 
-zpu_dobranch
-			'' replace condition in template
-			and	aux_opcode, con_mask
-			andn	branch_codes+1, con_mask
-			or	branch_codes+1, aux_opcode
-			'' and copy instructions
-			movs   ccopy, #branch_codes
-			jmp    #ccopy_next
-
-branch_codes
-			jmpret	intern_pc, #cmpbranch  '' set intern_pc for get_next_pc
-  if_z			jmp	#set_pc_rel_data
-
-cmpbranch
-			call	#get_next_pc
-			call	#pop_tos
-			cmp	tos, #0 wz	'' condition code used when we return
-  			call	#discard_tos
-  			jmp	intern_pc
-			
 pat_compare
 			jmpret	cmp_ret, #0-0	' 0-0 is replaced by imp_cmp_unsigned or imp_cmp_signed
 	if_never	mov	tos, #1
