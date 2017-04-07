@@ -205,18 +205,18 @@ dispatch_table
 {21}                    cmp     0, #zpu_emulate ' interrupt??
 {22}                    cmp     0, #zpu_emulate ' loadh
 {23}                    cmp     0, #zpu_emulate ' storeh
-{24}        if_b        cmp     cmp_signed_impl,   #zpu_cmp ' lessthan
-{25}        if_be       cmp     cmp_signed_impl,   #zpu_cmp ' lessthanorequal
-{26}        if_b        cmp     cmp_unsigned_impl, #zpu_cmp ' ulessthan
-{27}        if_be       cmp     cmp_unsigned_impl, #zpu_cmp ' ulessthanorequal
+{24}        if_b        cmp     imp_cmp_signed,   #emit_cmp ' lessthan
+{25}        if_be       cmp     imp_cmp_signed,   #emit_cmp ' lessthanorequal
+{26}        if_b        cmp     imp_cmp_unsigned, #emit_cmp ' ulessthan
+{27}        if_be       cmp     imp_cmp_unsigned, #emit_cmp ' ulessthanorequal
 {28}                    cmp     0, #zpu_emulate ' swap
 {29}                    cmp     0, #zpu_emulate ' slowmult
 {2A}                    shr     0, #emit_binaryop ' lshiftright
 {2B}                    shl     0, #emit_binaryop ' ashiftleft
 {2C}                    sar     0, #emit_binaryop ' ashiftright
 {2D}                    cmp     0, #zpu_emulate ' call
-{2E}        if_z        cmp     cmp_unsigned_impl, #zpu_cmp ' eq
-{2F}        if_nz       cmp     cmp_unsigned_impl, #zpu_cmp ' neq
+{2E}        if_z        cmp     imp_cmp_unsigned, #emit_cmp ' eq
+{2F}        if_nz       cmp     imp_cmp_unsigned, #emit_cmp ' neq
 
 {30}                    cmp     pat_neg, #emit_literal2	' compile zpu_neg
 {31}                    sub     0, #emit_binaryop ' sub
@@ -270,6 +270,28 @@ emit_addsp
 	    		movs	pat_addsp, address
 	    		movs	ccopy, #pat_addsp
 			jmp	#ccopy_next
+
+			' compile a signed or unsigned comparison
+			' function to call (cmp_unsigned_impl or
+			' cmp_signed_impl) is in dest field of aux_opcode
+			' the condition code to be used is in the cond field
+			' of aux_opcode
+emit_cmp
+			mov	data, aux_opcode
+			shr	data, #9
+			movs	pat_compare, data
+			
+			'' replace condition
+			and	aux_opcode, con_mask
+			andn	pat_compare+1, con_mask
+			or	pat_compare+1, aux_opcode
+			'' and copy instructions
+			movs   ccopy, #pat_compare
+			jmp    #ccopy_next
+			
+			' mask for condition codes
+con_mask		long	$f<<18
+
 
 zpu_callrelpc
 			mov	data, tos
@@ -455,41 +477,22 @@ cmpbranch
   			call	#discard_tos
   			jmp	intern_pc
 			
-			' compile an unsigned comparison
-			' function to call (cmp_unsigned_impl or
-			' cmp_signed_impl) is in dest field of aux_opcode
-zpu_cmp
-			mov	data, aux_opcode
-			shr	data, #9
-			movs	cmp_codes, data
-			
-			'' replace condition
-			and	aux_opcode, con_mask
-			andn	cmp_codes+1, con_mask
-			or	cmp_codes+1, aux_opcode
-			'' and copy instructions
-			movs   ccopy, #cmp_codes
-			jmp    #ccopy_next
-			
-cmp_codes
-			jmpret	cmp_ret, #0-0
+pat_compare
+			jmpret	cmp_ret, #0-0	' 0-0 is replaced by imp_cmp_unsigned or imp_cmp_signed
 	if_never	mov	tos, #1
 
-cmp_unsigned_impl
+imp_cmp_unsigned
                         call    #pop_tos
                         cmp     data, tos wc,wz
 			mov	tos, #0
 cmp_ret
 			ret
 
-cmp_signed_impl
+imp_cmp_signed
                         call    #pop_tos
                         cmps    data, tos wc,wz
 			mov	tos, #0
 			jmp	cmp_ret
-
-			' mask for condition codes
-con_mask		long	$f<<18
 
 
 zpu_pushspadd
