@@ -94,7 +94,7 @@ CON
 '' define TWO_LINE_CACHE for a 2 way cache
 '' otherwise we have only a single line
 
-'#define TWO_LINE_CACHE
+#define TWO_LINE_CACHE
 'CACHE_LINE_BITS = 3
 CACHE_LINE_BITS = 4
 'CACHE_LINE_BITS = 5 ' biggest for TWO_LINE_CACHE
@@ -102,7 +102,7 @@ CACHE_LINE_BITS = 4
 CACHE_LINE_SIZE = (1<<CACHE_LINE_BITS)
 CACHE_LINE_MASK = (CACHE_LINE_SIZE-1)
 
-L2_CACHE_BITS  = 4
+L2_CACHE_BITS  = (8-CACHE_LINE_BITS)
 L2_CACHE_LINES = (1<<L2_CACHE_BITS)  ' number of lines in the L2 cache
 L2_CACHE_MASK = (L2_CACHE_LINES-1)
 L2_CACHE_SIZE = (L2_CACHE_LINES * CACHE_LINE_SIZE)
@@ -1051,7 +1051,7 @@ l2tags_addr		long 0
 l2data_addr		long 0
 
 '------------------------------------------------------------------------------
-                        fit     $1F0  ' $198 works, $170 would be ideal, $1F0 is whole thing
+                        fit     $1f0  ' $198 works, $170 would be ideal, $1F0 is whole thing
 
 '---------------------------------------------------------------------------------------------------------
 'The End.
