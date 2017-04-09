@@ -86,8 +86,11 @@
 
 CON
 ' cache configuration
-' CACHE_LINE_SIZE must be a power of 2
-' 4 or 8 is probably good if we expect a lot of misses
+' CACHE_LINE_SIZE must be a power of 2,
+' and represents the number of bytes of ZPU instructions in each cache line
+' note that internally we need 8 times this much space (each ZPU
+' instruction maps to two PASM instructions)
+'
 '' define TWO_LINE_CACHE for a 2 way cache
 '' otherwise we have only a single line
 
@@ -99,7 +102,8 @@ CACHE_LINE_BITS = 4
 CACHE_LINE_SIZE = (1<<CACHE_LINE_BITS)
 CACHE_LINE_MASK = (CACHE_LINE_SIZE-1)
 
-L2_CACHE_LINES = 16  ' number of lines in the L2 cache
+L2_CACHE_BITS  = 4
+L2_CACHE_LINES = (1<<L2_CACHE_BITS)  ' number of lines in the L2 cache
 L2_CACHE_MASK = (L2_CACHE_LINES-1)
 L2_CACHE_SIZE = (L2_CACHE_LINES * CACHE_LINE_SIZE)
 
@@ -777,10 +781,10 @@ zpu_mult16x16_ret
 
 '------------------------------------------------------------------------------
 ' routine for fast transfer of COG memory to/from hub
-' "address" is the HUB memory address
-' "cogaddr" is the COG memory address
-' "temp"    is the number of *bytes* to transfer
-' the Z bit is set if we want to read, clear if we want to write
+' "hubaddr"   is the HUB memory address
+' "cogaddr"   is the COG memory address
+' "hubcnt"    is the number of *bytes* to transfer
+' the C bit is set if we want to read, clear if we want to write
 '
 ' The idea is based on code posted by Kuroneko in the
 ' "Fastest possible memory transfer" thread on the
@@ -788,37 +792,40 @@ zpu_mult16x16_ret
 ' Note that the number of longs must be a multiple of 2
 '------------------------------------------------------------------------------
 cogaddr		long 0
+hubaddr		long 0
+hubcnt		long 0
+
 ' this mask controls the R bit; if it is set then we read
 ' if it is clear then we write
 rdwrtoggle	long %000000_0010_0000_000000000_000000000
 
 cogxfr
-		muxz	lbuf0, rdwrtoggle
-		muxz	lbuf1, rdwrtoggle
+		muxc	lbuf0, rdwrtoggle
+		muxc	lbuf1, rdwrtoggle
 xfer
-		add	temp, #7
-		andn	temp, #7	' round up
+		add	hubcnt, #7
+		andn	hubcnt, #7	' round up
 		' point to last byte in HUB buffer
-		add	address, temp
-		sub	address, #1
+		add	hubaddr, hubcnt
+		sub	hubaddr, #1
 		' point to last longs in cog memory
-		shr	temp, #2      ' convert to longs
+		shr	hubcnt, #2      ' convert to longs
 		sub	cogaddr, #1
-		add	cogaddr, temp
+		add	cogaddr, hubcnt
 		movd	lbuf0, cogaddr
 		sub	cogaddr, #1
 		movd	lbuf1, cogaddr
-		sub	temp, #2
-		movi	address, temp	' set high bits of hub address
+		sub	hubcnt, #2
+		movi	hubaddr, hubcnt	' set high bits of hub address
 
-lbuf0		rdlong	0-0, address
+lbuf0		rdlong	0-0, hubaddr
 		sub	lbuf0, dst2
-		sub	address, i2s7 wc
-lbuf1		rdlong  0-0, address
+		sub	hubaddr, i2s7 wc
+lbuf1		rdlong  0-0, hubaddr
 		sub	lbuf1, dst2
-if_nc		djnz	address, #lbuf0
+if_nc		djnz	hubaddr, #lbuf0
 
-cogrdwr_ret
+cogxfr_ret
 		ret
 		'' initialized data and presets
 dst2		long	2 << 9
@@ -833,13 +840,34 @@ i2s7		long	(2<<23) | 7
 ' and then write the compiled code out to L2
 '------------------------------------------------------------------------------
 fill
+			'' calculate L2 address
+			'' for a hit, we need this to read back the precompiled code
+			'' for a miss, we need it to save the new code
+			mov    hubaddr, cur_cache_tag
+			shr    hubaddr, #CACHE_LINE_BITS
+			and    hubaddr, #L2_CACHE_MASK
+			mov    t2, hubaddr		' save masked cache line
+			shl    hubaddr, #CACHE_LINE_BITS
+			add    hubaddr, l2data_addr
+			mov    hubcnt, #CACHE_LINE_SIZE*8
+			mov    cogaddr, cur_cache_base
 			''
 			'' check for L2 hit
 			''
-			mov	t2, cur_cache_tag
-			shr	t2, #(CACHE_LINE_BITS-2)
+			shl	t2, #2			' convert to long address
 			add	t2, l2tags_addr
+			rdlong	t2, t2
+			cmp	t2, cur_cache_tag
+    if_nz		jmp	#do_compile
 
+    			'' OK, all we have to do here is to read the
+			'' data in
+			test	word_mask, #1 wc	' set C bit
+fill_and_ret
+			call	#cogxfr
+fill_ret
+			ret
+do_compile
 			movd	ccopy, cur_cache_base
 			mov	t2, cur_cache_tag
 			add	t2, zpu_memory_addr
@@ -890,8 +918,9 @@ transi
                         jmp     aux_opcode                    'Jump through dispatch table for other ops
 nexti
 			djnz	t1, #transi
-fill_ret
-			ret
+
+			test	word_mask, #0 wc	' clear C bit
+			jmp	#fill_and_ret
 
 '------------------------------------------------------------------------------
 icache0
