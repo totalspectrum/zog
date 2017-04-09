@@ -264,7 +264,15 @@ l2data
 
 			org     0
 enter
+icache0
                         jmp     #init
+'------------------------------------------------------------------------------
+			long	0[2*CACHE_LINE_SIZE-1]
+icache0_end
+			mov	cur_pc, cur_cache_tag
+			add	cur_pc, #CACHE_LINE_SIZE
+			jmp	#set_pc
+
 			
 '------------------------------------------------------------------------------
 ' COMPILATION ROUTINES
@@ -630,7 +638,6 @@ dummy
 get_next_pc
 			mov	cur_pc, intern_pc
 			add	cur_pc, #1		' 2 COG instructions per ZPU one, so round up
-			sub	cur_pc, cur_cache_base	' offset from cache start
 			shr	cur_pc, #1		' convert to number of instructions
 			add	cur_pc, cur_cache_tag
 get_next_pc_ret
@@ -661,27 +668,10 @@ set_pc
 			'' is the desired line already in cache?
 			cmp	cur_cache_tag, cur_pc wz
     	if_z		jmp	#cache_full
-#ifdef TWO_LINE_CACHE
-			'' is it in the previous cache line?
-			'' in any case our current line is about to become
-			'' the second most recently used, so swap
-			mov	t1, prev_cache_tag
-			mov	prev_cache_tag, cur_cache_tag
-			mov	cur_cache_tag, t1
-
-			mov	t1, prev_cache_base
-			mov	prev_cache_base, cur_cache_base
-			mov	cur_cache_base, t1
-
-			cmp	cur_cache_tag, cur_pc wz
-       if_z		jmp	#cache_full
-#endif
-
 			mov	cur_cache_tag, cur_pc
   			call	#fill		
 
 cache_full
-			add	intern_pc, cur_cache_base
 			jmp	intern_pc
 			
 '------------------------------------------------------------------------------
@@ -844,11 +834,19 @@ hubcnt		long 0
 
 ' this mask controls the R bit; if it is set then we read
 ' if it is clear then we write
-rdwrtoggle	long %000000_0010_0000_000000000_000000000
+
+' NOTE: the instructions at lbuf0 and lbuf1 can be destroyed if
+' we count down below 0 (where the cache starts) so we have to
+' refresh them each time
+' we have to set up for read/write anyway, so this isn't too big
+' a deal
+rdins	   	rdlong	0-0, hubaddr
+wrins		wrlong	0-0, hubaddr
 
 cogxfr
-		muxc	lbuf0, rdwrtoggle
-		muxc	lbuf1, rdwrtoggle
+  if_c		mov	lbuf0, rdins
+  if_nc		mov	lbuf0, wrins
+		mov	lbuf1, lbuf0
 xfer
 		add	hubcnt, #7
 		andn	hubcnt, #7	' round up
@@ -857,8 +855,8 @@ xfer
 		sub	hubaddr, #1
 		' point to last longs in cog memory
 		shr	hubcnt, #2      ' convert to longs
-		sub	cogaddr, #1
 		add	cogaddr, hubcnt
+		sub	cogaddr, #1
 		movd	lbuf0, cogaddr
 		sub	cogaddr, #1
 		movd	lbuf1, cogaddr
@@ -897,7 +895,7 @@ fill
 			shl    	hubaddr, #(CACHE_LINE_BITS+3) ' need to multiply by 8 to convert to PASM instructions
 			add	hubaddr, l2data_addr
 			mov    	hubcnt, #CACHE_LINE_SIZE*8
-			mov    	cogaddr, cur_cache_base
+			mov    	cogaddr, #0
 			''
 			'' check for L2 hit
 			''
@@ -916,7 +914,7 @@ fill_ret
 			ret
 do_compile
 			wrlong	cur_cache_tag, t2	' update new cache tag
-			movd	ccopy, cur_cache_base
+			movd	ccopy, #0      		' cache is at 0
 			mov	t2, cur_cache_tag
 			add	t2, zpu_memory_addr
 			mov	t1, #CACHE_LINE_SIZE
@@ -969,23 +967,6 @@ nexti
 
 			shl	word_mask, #0 nr,wc	' clear C bit
 			jmp	#fill_and_ret
-
-'------------------------------------------------------------------------------
-icache0
-			long	0[2*CACHE_LINE_SIZE]
-
-			mov	cur_pc, cur_cache_tag
-			add	cur_pc, #CACHE_LINE_SIZE
-			jmp	#set_pc
-
-#ifdef TWO_LINE_CACHE
-icache1
-			long	0[2*CACHE_LINE_SIZE]
-
-			mov	cur_pc, cur_cache_tag
-			add	cur_pc, #CACHE_LINE_SIZE
-			jmp	#set_pc
-#endif
 
 '------------------------------------------------------------------------------
 
@@ -1079,15 +1060,7 @@ zpu_io_start            long $10008800  'Start of IO access window
 
 
 '' COG internal PC address
-intern_pc		long	icache0+1	' store return address here
-'' base of current cache line
-cur_cache_base	   	long	icache0
-
-#ifdef TWO_LINE_CACHE
-'' last cache line
-prev_cache_tag		long	$EEEEEEEE
-prev_cache_base		long	icache1
-#endif
+intern_pc		long	0		' store return address here
 
 
 '------------------------------------------------------------------------------
