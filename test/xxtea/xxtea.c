@@ -8,6 +8,7 @@
 #define printf iprintf
 #define clock myclock
 #define clock_t uint32_t
+#define uint8_t unsigned char
 
 uint32_t clock()
 {
@@ -15,19 +16,18 @@ uint32_t clock()
 }
 
 static void
-byteswap(uint32_t *ptr, size_t siz)
+byteswap(void *vptr, size_t siz)
 {
-    uint32_t x;
-    uint32_t y;
-
+    uint8_t *cptr = (uint8_t*)vptr;
+    int c;
     while (siz > 0) {
-        x = *ptr;
-        y = (x >> 24) & 0xff;
-        y |= (x >> 16) & 0xff00;
-        y |= (x<<16) & 0xff0000;
-        y |= (x<<24);
-        *ptr = y;
-        ptr++;
+        c = cptr[0];
+        cptr[0] = cptr[3];
+        cptr[3] = c;
+        c = cptr[1];
+        cptr[1] = cptr[2];
+        cptr[2] = c;
+        cptr+=4;
         siz -= 4;
     }
 }
@@ -82,10 +82,10 @@ int main(int argc, char* argv[])
 {
     clock_t start, end;
 
-#ifdef __zpu__
+#ifdef __zpu__NEVER
     byteswap(testVector, sizeof(testVector));
 #endif
-#ifdef NEVER
+#ifdef __zpu__
     byteswap(key, sizeof(key));
 #endif
     start = clock();
