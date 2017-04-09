@@ -1,9 +1,9 @@
 '********************************************************************************
 '*                                                                              *
-'* ZOG_SMALL A ZPU Virtual machine running on the Parallax Propeller            *
+'* ZOG_JIT A ZPU Virtual machine running on the Parallax Propeller              *
 '*           micro-controller.                                                  *
 '*                                                                              *
-'*           ZOG_JIT is a compact version of ZOG that compiles (at run time!)   *
+'*           ZOG_JIT is a version of ZOG that compiles (at run time!)           *
 '*           the ZPU instructions to native Propeller instructions. It is based *
 '*           on Michael Rychlik's ZOG_SMALL, but it's been extensively          *
 '*           modified by me (Eric Smith) and is, alas, much uglier now          *
@@ -29,6 +29,7 @@
 '
 ' v0.2      2017-04-06 First zog 1.6 compatible version (original development
 '                      was based on zog 1.0)
+' v0.3      2017-04-09 Add a level 2 cache for compiled instructions
 '
 ' Michael's original change log below:
 '
@@ -108,7 +109,6 @@ L2_CACHE_MASK = (L2_CACHE_LINES-1)
 L2_CACHE_SIZE = (L2_CACHE_LINES * CACHE_LINE_SIZE)
 
 ' These are the SPIN byte codes for mul and div
-SPIN_MUL_OP     = $F4  '(multiply, return lower 32 bits)
 SPIN_DIV_OP     = $F6  '(divide, return quotient 32 bits)
 SPIN_REM_OP     = $F7  '(divide, return remainder 32 bits)
 
@@ -221,7 +221,7 @@ dispatch_table
 {26}        if_b        cmp     imp_cmp_unsigned, #emit_cmp ' ulessthan
 {27}        if_be       cmp     imp_cmp_unsigned, #emit_cmp ' ulessthanorequal
 {28}                    cmp     0, #emit_emulate ' swap
-{29}                    cmp     0, #emit_emulate ' slowmult
+{29}                    cmp     pat_mult, #emit_literal2	' compile multiply
 {2A}                    shr     0, #emit_binaryop ' lshiftright
 {2B}                    shl     0, #emit_binaryop ' ashiftleft
 {2C}                    sar     0, #emit_binaryop ' ashiftright
@@ -557,9 +557,12 @@ imp_pushspadd_ret
 			ret
 
 
+pat_mult
+                        call    #pop_tos
+			call	#imp_mult
 pat_mult16x16
                         call    #pop_tos
-			call	#zpu_mult16x16
+			call	#imp_mult16x16
 
 '------------------------------------------------------------------------------
 
@@ -718,67 +721,37 @@ ccopy
 cstep			long (1<<9) + 1
 
 '------------------------------------------------------------------------------
-
-'------------------------------------------------------------------------------
-'Maths routines borrowed from the Cluso Spin interpreter.
-'In turn orrowed from the Parallax Spin interpreter.
-'$F4..F7 = MUL/DIV lower/upper result
-'
-' a" holds the opcode (lower 5 bits as shown in the first block of code... e.g. MPY=$F4=%10100)
-' "x" and "y" are the two numbers to be multiplied (or divided) x * y or x / y, result is in "x" (pushed).
-'
-' So, if you use this routine with a set to...
-'  a = $F4 (multiply, return lower 32 bits)
-'  a = $F5 (multiply, return upper 32 bits)
-'  a = $F6 (divide, return quotient 32 bits)
-'  a = $F7 (divide, return remainder 32 bits)
-
-zpu_mult16x16
-                        mov     x, tos
-                        and     x, word_mask
-                        mov     y, data
-                        and     y, word_mask
-                        mov     a, #SPIN_MUL_OP
-			'' fall through
-
-math_F4                 and     a,#%11111               '<== and mask (need in a)
-                        mov     t1,#0
-                        mov     t2,#32                  'multiply/divide
-                        abs     x,x             wc
-                        muxc    a,#%01100
-                        abs     y,y             wc,wz
-        if_c            xor     a,#%00100
-                        test    a,#%00010       wc      'set c if divide (DIV/MOD)
-        if_c_and_nz     jmp     #mdiv                   'if divide and y=0, do multiply so result=0
-                        shr     x,#1            wc      'multiply
-mmul    if_c            add     t1,y            wc
-                        rcr     t1,#1           wc
-                        rcr     x,#1            wc
-                        djnz    t2,#mmul
-                        test    a,#%00100       wz
-        if_nz           neg     t1,t1
-        if_nz           neg     x,x             wz
-        if_nz           sub     t1,#1
-                        test    a,#%00001       wz
-        if_nz           mov     x,t1
-                        mov     tos, x
-                        jmp     #zpu_mult16x16_ret
-mdiv                    shr     y,#1            wc,wz   'divide
-                        rcr     t1,#1
-        if_nz           djnz    t2,#mdiv
-mdiv2                   cmpsub  x,t1            wc
-                        rcl     y,#1
-                        shr     t1,#1
-                        djnz    t2,#mdiv2
-                        test    a,#%01000       wc
-                        negc    x,x
-                        test    a,#%00100       wc
-                        test    a,#%00001       wz
-        if_z            negc    x,y
-                        mov     tos, x
-zpu_mult16x16_ret
+' Multiply routines
+imp_mult16x16
+			and	data, word_mask
+			and	tos, word_mask
+imp_mult
+#ifdef USE_FASTER_MULT
+                        abs     tos, tos        wc
+                        negc    data, data
+                        abs     data, data      wc
+                        ' make t2 the smaller of the 2 unsigned parameters
+                        mov     t2, tos
+                        max     t2, data
+                        min     data, tos
+                        ' corrct the sign of the adder
+                        negc    data, data
+#else
+                        abs     t2, tos         wc
+                        negc    data, data
+#endif
+                        ' my accumulator
+                        mov     tos, #0
+                        ' do the work
+:mul_loop               shr     t2, #1          wc,wz   ' get the low bit of t2
+        if_c            add     tos, data               ' if it was a 1, add adder to accumulator
+                        shl     data, #1                ' shift the adder left by 1 bit
+        if_nz           jmp     #:mul_loop              ' continue as long as there are no more 1's
+                        ' "Run home, Jack!"
+imp_mult_ret
+imp_mult16x16_ret
 			ret
-
+			
 '------------------------------------------------------------------------------
 ' routine for fast transfer of COG memory to/from hub
 ' "hubaddr"   is the HUB memory address
