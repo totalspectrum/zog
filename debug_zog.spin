@@ -172,7 +172,7 @@ zpu_memory_size = (1 << 25)                              'The size of ZPU memory
 zpu_memory_size = (64 * 1024)                            'The size of ZPU memory area
 #endif
 #ifdef USE_HUB_MEMORY
-zpu_memory_size = (24 * 1024)                            'The size of ZPU memory area
+zpu_memory_size = (23 * 1024)                            'The size of ZPU memory area
 #endif
 
 ' These are the SPIN byte codes for mul and div

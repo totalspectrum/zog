@@ -856,18 +856,19 @@ fill
 			''
 			shl	t2, #2			' convert to long address
 			add	t2, l2tags_addr
-			rdlong	t2, t2
-			cmp	t2, cur_cache_tag
+			rdlong	x, t2
+			cmp	x, cur_cache_tag wz
     if_nz		jmp	#do_compile
 
     			'' OK, all we have to do here is to read the
 			'' data in
-			test	word_mask, #1 wc	' set C bit
+			shr	word_mask, #1 nr,wc	' set C bit
 fill_and_ret
 			call	#cogxfr
 fill_ret
 			ret
 do_compile
+			wrlong	cur_cache_tag, t2	' update new cache tag
 			movd	ccopy, cur_cache_base
 			mov	t2, cur_cache_tag
 			add	t2, zpu_memory_addr
@@ -919,7 +920,7 @@ transi
 nexti
 			djnz	t1, #transi
 
-			test	word_mask, #0 wc	' clear C bit
+			shl	word_mask, #0 nr,wc	' clear C bit
 			jmp	#fill_and_ret
 
 '------------------------------------------------------------------------------
@@ -1009,7 +1010,7 @@ debug_addr              mov     debug_addr, temp     'HUB address of debug regis
 
 aux_opcode		mov	cur_pc, #0  	     ' implementation data for translating current opcode byte
 			mov	l2tags_addr, dispatch_tab_addr
-			add	l2tags_addr, #$3F*4
+			add	l2tags_addr, #$40*4
 			mov	l2data_addr, l2tags_addr
 			add	l2data_addr, #L2_CACHE_LINES*4
 			jmp	#set_pc
