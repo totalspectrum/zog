@@ -186,7 +186,7 @@ dispatch_table
 {05}                    add     0, #emit_binaryop		' compile zpu_add
 {06}                    and     0, #emit_binaryop		' compile zpu_and
 {07}                    or      0, #emit_binaryop		' compile zpu_or
-{08}                    cmp     pat_load, #emit_literal2		' compile zpu_load
+{08}                    cmp     pat_load, 	#emit_load	' compile zpu_load
 {09}                    cmp	pat_not,  #emit_literal2		' compile zpu_not
 {0A}                    cmp     pat_flip, #emit_literal2		' compile zpu_flip
 {0B}                    cmp     pat_nop,  #emit_literal2		' compile zpu_nop
@@ -216,8 +216,8 @@ dispatch_table
 {21}                    cmp     0, #emit_emulate ' interrupt??
 {22}                    cmp     0, #emit_emulate ' loadh
 {23}                    cmp     0, #emit_emulate ' storeh
-{24}        if_b        cmp     imp_cmp_signed,   #emit_cmp ' lessthan
-{25}        if_be       cmp     imp_cmp_signed,   #emit_cmp ' lessthanorequal
+{24}        if_b        cmps    imp_cmp_signed,   #emit_cmp ' lessthan
+{25}        if_be       cmps    imp_cmp_signed,   #emit_cmp ' lessthanorequal
 {26}        if_b        cmp     imp_cmp_unsigned, #emit_cmp ' ulessthan
 {27}        if_be       cmp     imp_cmp_unsigned, #emit_cmp ' ulessthanorequal
 {28}                    cmp     0, #emit_emulate ' swap
@@ -322,6 +322,7 @@ emit_binaryop_known_val
 pat_binaryop
 			call	#pop_tos
 			add	tos, data	' "add" will be replaced here by the generic binary operator
+pat_nop
 			nop	     		' used if we skip the pop_tos
 			nop			' also used if we skip the pop_tos			
 
@@ -361,8 +362,8 @@ imp_condbranch
 			call	#pop_tos
 			cmp	tos, #0 wz	'' condition code used when we return
   			call	#discard_tos
-  			jmp	intern_pc
-			
+  			jmp	intern_pc	'' returns to pat_condbranch
+
 			' compile a signed or unsigned comparison
 			' function to call (cmp_unsigned_impl or
 			' cmp_signed_impl) is in dest field of aux_opcode
@@ -419,6 +420,19 @@ loadsp_call		call	#imp_loadsp
 storesp_call		call	#imp_storesp
 
 
+''
+'' compile a zpu_load instruction (tos -> *tos)
+'' normally this uses pat_load, but if we know the current immediate we may be able to
+'' skip some of that
+''
+emit_load		test	last_im_valid, #1 wz
+	if_z		jmp	#emit_literal2
+			test	last_im, io_mask wz	'' are any high bits set?
+	if_nz		jmp	#emit_literal2
+			'' optimize to a fast hub read
+			movs	ccopy, #pat_fastload
+			jmp	#ccopy_next
+			
 '' compile zpu_im instructions
 '' for the first move we have to sign extend the 7 bit immediate
 '' we take advantage of the fact that the NEG and MOV instructions differ only
@@ -435,6 +449,7 @@ emit_first_im
 			mov	im_flag, #emit_later_im
 			shl     opcode, #(32 - 7)
                         sar     opcode, #(32 - 7)
+			mov	last_im, opcode
 			abs	opcode, opcode wc
 			muxc	pat_first_im+1, mov_neg_mask	    ' set NEG if c, MOV if nc
 			movs	pat_first_im+1, opcode
@@ -466,8 +481,6 @@ pat_breakpoint
 div_zero_error
 pat_illegal
 			call	#break
-pat_nop					'' share a nop here
-			nop
 			nop
 
 pat_pushsp
@@ -504,6 +517,9 @@ imp_addsp_ret
 pat_load
                         mov     address, tos
 			call	#read_long
+pat_fastload
+			add	tos, zpu_memory_addr
+			rdlong	tos, tos
 
 pat_not
                         xor     tos, minus_one
@@ -695,9 +711,8 @@ imp_storesp_ret
 read_long
 			test	address, io_mask wz
 	      if_nz	jmp	#special_read
-                        mov     memp, address
-                        add     memp, zpu_memory_addr
-                        rdlong  tos, memp
+                        add     address, zpu_memory_addr
+                        rdlong  tos, address
 read_long_ret           ret
 
 special_read
@@ -1040,12 +1055,12 @@ dm_addr                 mov     dm_addr, temp        'HUB address of decode mask
 dbg_data                add     temp, #4
 debug_addr              mov     debug_addr, temp     'HUB address of debug register
 
-aux_opcode		mov	cur_pc, #0  	     ' implementation data for translating current opcode byte
-			mov	l2tags_addr, dispatch_tab_addr
-			add	l2tags_addr, #$40*4
-			mov	l2data_addr, l2tags_addr
-			add	l2data_addr, #L2_CACHE_LINES*4
-			jmp	#set_pc
+l2tags_addr		mov	cur_pc, #0  	     ' implementation data for translating current opcode byte
+l2data_addr		mov	l2tags_addr, dispatch_tab_addr
+last_im			add	l2tags_addr, #$40*4
+last_im_valid		mov	l2data_addr, l2tags_addr
+cur_cache_tag		add	l2data_addr, #L2_CACHE_LINES*4
+aux_opcode		jmp	#set_pc
 
 im_flag			long	emit_first_im    ' selects pattern for IM
 '------------------------------------------------------------------------------
@@ -1065,8 +1080,6 @@ zpu_io_start            long $10008800  'Start of IO access window
 
 '' COG internal PC address
 intern_pc		long	icache0+1	' store return address here
-'' start PC of current cache line
-cur_cache_tag		long	$DEADBEEF
 '' base of current cache line
 cur_cache_base	   	long	icache0
 
@@ -1076,14 +1089,6 @@ prev_cache_tag		long	$EEEEEEEE
 prev_cache_base		long	icache1
 #endif
 
-last_im_valid		long 0		' flag, if nonzero last_im holds tos
-last_im			long 0
-
-''
-'' L2 cache addr
-''
-l2tags_addr		long 0
-l2data_addr		long 0
 
 '------------------------------------------------------------------------------
                         fit     $1f0  ' $1d0 works, $1F0 is whole thing
