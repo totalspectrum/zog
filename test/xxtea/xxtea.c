@@ -1,14 +1,38 @@
 #include <stdio.h>
-#include <string.h>
-#include <malloc.h>
+#include <time.h>
+
+#include "xxtea.h"
+
 #ifdef __zpu__
+
 #define printf iprintf
+#define clock myclock
+#define clock_t uint32_t
+
+uint32_t clock()
+{
+    return *(uint32_t *)0x80000100;
+}
+
+static void
+byteswap(uint32_t *ptr, size_t siz)
+{
+    uint32_t x;
+    uint32_t y;
+
+    while (siz > 0) {
+        x = *ptr;
+        y = (x >> 24) & 0xff;
+        y |= (x >> 16) & 0xff00;
+        y |= (x<<16) & 0xff0000;
+        y |= (x<<24);
+        *ptr = y;
+        ptr++;
+        siz -= 4;
+    }
+}
+
 #endif
-
-#define uint32_t unsigned int
-
-#define DELTA 0x9e3779b9
-#define MX ((z>>5^y<<2) + (y>>3^z<<4)) ^ ((sum^y) + (k[(p&3)^e] ^ z));
 
 void btea(uint32_t *v, int n, uint32_t const k[4])
 {
@@ -51,30 +75,25 @@ uint32_t testVector[] = {0x9d204ce7, 0xc03677f6, 0x320f0555, 0x499c703c,
                          0x8b8af399, 0x061b6314, 0x7d410085, 0xe65b712c,
                          0xb7d23609, 0x0270cd59, 0xa23dc8d1};
 
+char key[16] = "0123456789ABCDEF";
+int blockSize = sizeof(testVector) / 4;
+
 int main(int argc, char* argv[])
 {
-	char key[16] = "0123456789ABCDEF";
-	char* text = "All work and no play makes Jack a dull boy.";
-        uint32_t *vector;
-	int blockSize = (strlen(text) + 4) / 4;
+    clock_t start, end;
 
-	vector = (uint32_t*)malloc (blockSize);
-	memset (vector, 0, sizeof(vector));
-	strncpy ((char*)vector, text, strlen(text) + 1); 
+#ifdef __zpu__NEVER
+    byteswap(testVector, sizeof(testVector));
+    byteswap(key, sizeof(key));
+#endif
+    start = clock();
+    btea (testVector, -blockSize, (uint32_t*) key);
+    end = clock();
+#ifdef __zpu__NEVER
+    byteswap(testVector, sizeof(testVector));
+#endif
+    printf("%s\n", (char*)testVector);
+    printf("done in %lu cycles\n", (unsigned long)(end - start));
 
-	btea (vector, blockSize, (uint32_t*) key);
-
-	for (int i = 0; i < blockSize;  i++)
-        {
-		printf("%x ", vector[i]);
-        }
-	printf("\n");
-
-	btea (vector, -blockSize, (uint32_t*) key);
-	printf("%s\n", (char*)vector);
-
-	btea (testVector, -blockSize, (uint32_t*) key);
-	printf("%s\n", (char*)testVector);
-
-	return(0);
+    return(0);
 } 

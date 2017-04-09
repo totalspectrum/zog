@@ -226,8 +226,8 @@ dispatch_table
 {34}                    cmp     0, #emit_emulate ' storeb
 {35}                    cmp     0, #emit_emulate ' div
 {36}                    cmp     0, #emit_emulate ' mod
-{37}        if_z        cmp     cmpbranch, #emit_condbranch ' eqbranch
-{38}        if_nz       cmp     cmpbranch, #emit_condbranch ' neqbranch
+{37}        if_z        cmp     0, #emit_condbranch ' eqbranch
+{38}        if_nz       cmp     0, #emit_condbranch ' neqbranch
 {39}                    cmp     0, #emit_emulate ' poppcrel
 {3A}                    cmp     0, #emit_emulate ' config
 {3B}                    cmp     pat_pushpc, #emit_literal2	' compile pushpc
