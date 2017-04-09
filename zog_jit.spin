@@ -682,16 +682,28 @@ read_long
                         add     memp, zpu_memory_addr
                         rdlong  tos, memp
 read_long_ret           ret
+
 special_read
-''			cmp     address, uart_address wz
-''              if_z      jmp     #in_long
-                        cmp     address, timer_address wz
+read_cog_long           cmp     address, zpu_io_start wc  'Check for COG memory access
+              if_nc     jmp     #read_io_long
+
+                        shr     address, #2
+                        movs    :rcog, address
+                        nop
+:rcog                   mov     tos, 0-0
+                        jmp     #read_long_ret
+
+read_io_long            cmp     address, timer_address wz 'Check for timer read
               if_z      mov     tos, cnt
-	      if_nz     mov	tos, #$100	' makes the UART happy
-                        jmp     read_long_ret
-			
-''in_long                 mov     tos, #$100
-''                        jmp     #read_long_ret
+              if_z      jmp     #read_long_ret
+                                                      'Must be other I/O address
+                        wrlong  address, io_port_addr 'Set port address
+                        mov     temp, #io_cmd_in      'Set I/O command to IN
+                        wrlong  temp, io_command_addr
+:wait                   rdlong  temp, io_command_addr wz 'Wait for command to be completed
+              if_nz     jmp     #:wait
+                        rdlong  tos, io_data_addr    'Get the port data
+                        jmp     #read_long_ret
 
 '------------------------------------------------------------------------------
 
