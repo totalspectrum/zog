@@ -94,7 +94,7 @@ CON
 '' define TWO_LINE_CACHE for a 2 way cache
 '' otherwise we have only a single line
 
-#define TWO_LINE_CACHE
+'#define TWO_LINE_CACHE
 'CACHE_LINE_BITS = 3
 CACHE_LINE_BITS = 4
 'CACHE_LINE_BITS = 5 ' biggest for TWO_LINE_CACHE
@@ -843,14 +843,14 @@ fill
 			'' calculate L2 address
 			'' for a hit, we need this to read back the precompiled code
 			'' for a miss, we need it to save the new code
-			mov    hubaddr, cur_cache_tag
-			shr    hubaddr, #CACHE_LINE_BITS
-			and    hubaddr, #L2_CACHE_MASK
-			mov    t2, hubaddr		' save masked cache line
-			shl    hubaddr, #CACHE_LINE_BITS
-			add    hubaddr, l2data_addr
-			mov    hubcnt, #CACHE_LINE_SIZE*8
-			mov    cogaddr, cur_cache_base
+			mov	hubaddr, cur_cache_tag
+			shr    	hubaddr, #CACHE_LINE_BITS
+			and    	hubaddr, #L2_CACHE_MASK
+			mov    	t2, hubaddr		' save masked cache line
+			shl    	hubaddr, #(CACHE_LINE_BITS+3) ' need to multiply by 8 to convert to PASM instructions
+			add	hubaddr, l2data_addr
+			mov    	hubcnt, #CACHE_LINE_SIZE*8
+			mov    	cogaddr, cur_cache_base
 			''
 			'' check for L2 hit
 			''
