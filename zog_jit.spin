@@ -275,7 +275,31 @@ emit_literal2
 			shr	aux_opcode, #9	' extract dest field
 			movs	ccopy, aux_opcode
 			jmp	#ccopy_next
-			
+
+''
+'' helper function for compilation
+''
+'' transforms the first_im call #push_tos / mov tos, #0-0
+'' into plain mov data, #0-0
+'' so that a subsequent pop_tos can be elided
+'' NOTE: leaves the ccopy pointer just after the mov instruction,
+'' so we need to emit *3* instructions instead of the usual 2!
+''
+
+fixup_first_im
+			mov	y, ccopy
+			shr	y, #9	'' extract pointer to next output
+			sub	y, #1	'' back up to mov tos, #0-0
+			movs	fixup1, y
+			movd	ccopy, y	'' update the next output pointer
+			sub	y, #1	'' back up again
+			movd	fixup2, y
+fixup1			mov	y, 0-0	'' load the actual mov instruction
+			movd	y, #data	'' replace "tos" with "data"
+fixup2			mov	0-0, y	'' store the modified instruction over top of call #push_tos
+
+fixup_first_im_ret	ret
+
 '' compile a binary operator
 '' the instruction in the dispatch table (found in aux_opcode) is the one
 '' we want to emit
@@ -290,23 +314,16 @@ emit_binaryop
 			'' when we immediately follow an im
 			'' (so we know what was pushed onto tos)
 			'' we nop out the push in first_im, and
-			'' 
+			''
 emit_binaryop_known_val
-			mov	temp, ccopy	' get dest address
-			shr	temp, #9
-			sub	temp, #2	' back up two instructions
-			movd	nopify1, temp
-			add	temp, #1	' move on to mov/neg
-			movd	nopify2, temp
-nopify1			mov	0-0, #0		' insert nop
-nopify2			movd	0-0, #data	' move to data rather than tos
-			add	ccopy, #1	' skip first part of pat_binaryop
-			jmp	#ccopy_next
+			call	#fixup_first_im	' overwrite the old first_im instruction
+			movs	ccopy, #pat_binaryop+1
+			jmp	#ccopy3_next
 pat_binaryop
 			call	#pop_tos
 			add	tos, data	' "add" will be replaced here by the generic binary operator
 			nop	     		' used if we skip the pop_tos
-			
+			nop			' also used if we skip the pop_tos			
 
 emit_addsp
 			and	address, #$0F
@@ -749,12 +766,18 @@ ccopy_next
 			mov	last_im_valid, #0
 ccopy_im_valid
 
+ccopy2
+			mov	cnt, #2
 ccopy
 			mov 0-0, 0-0
 			add ccopy, cstep
 			djnz cnt, #ccopy
 			jmp  #nexti
 cstep			long (1<<9) + 1
+
+ccopy3_next		mov	cnt, #3
+			mov	last_im_valid, #0
+			jmp	#ccopy
 
 '------------------------------------------------------------------------------
 ' Multiply routines
@@ -908,7 +931,6 @@ transi
 #endif
 			add	t2, #1
 			' build the instruction into icache here
-			mov	cnt, #2
 
                         test    opcode, #$80 wz          'Check for IM instruction
               if_nz     jmp     im_flag	     ' compile whichver IM instruction variant we need
