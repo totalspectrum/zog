@@ -92,7 +92,7 @@ CON
 ' note that internally we need 8 times this much space (each ZPU
 ' instruction maps to two PASM instructions)
 '
-'' define TWO_LINE_CACHE for a 2 way cache
+'' define TWO_LINE_CACHE for a 2 way internal cache
 '' otherwise we have only a single line
 
 #define TWO_LINE_CACHE
@@ -283,12 +283,30 @@ emit_binaryop
 			shr	aux_opcode, #23		' extract instruction field
 			movi	pat_binaryop+1, aux_opcode
 			movs	ccopy, #pat_binaryop	' set up to copy instructions
-			jmp	#ccopy_next		' copy them into place
+			test	last_im_valid, #1 wz
+  if_z			jmp	#ccopy_next		' copy them into place
+
+			'' special variant of emit_binaryop used
+			'' when we immediately follow an im
+			'' (so we know what was pushed onto tos)
+			'' we nop out the push in first_im, and
+			'' 
+emit_binaryop_known_val
+			mov	temp, ccopy	' get dest address
+			shr	temp, #9
+			sub	temp, #2	' back up two instructions
+			movd	nopify1, temp
+			add	temp, #1	' move on to mov/neg
+			movd	nopify2, temp
+nopify1			mov	0-0, #0		' insert nop
+nopify2			movd	0-0, #data	' move to data rather than tos
+			add	ccopy, #1	' skip first part of pat_binaryop
+			jmp	#ccopy_next
 pat_binaryop
 			call	#pop_tos
 			add	tos, data	' "add" will be replaced here by the generic binary operator
+			nop	     		' used if we skip the pop_tos
 			
-
 
 emit_addsp
 			and	address, #$0F
@@ -392,17 +410,20 @@ storesp_call		call	#imp_storesp
 '' NEG = %101001_001_0_1111_000000000_000000000
 '' so we can mux on 1 bit to toggle between them
 ''
+'' NOTE: some patterns rely on the way pat_first_im looks
+''
 mov_neg_mask		long	%000001_000_0_0000_000000000_000000000
 
 emit_first_im
 			mov	im_flag, #emit_later_im
-			shl     address, #(32 - 7)
-                        sar     address, #(32 - 7)
-			abs	address, address wc
+			shl     opcode, #(32 - 7)
+                        sar     opcode, #(32 - 7)
+			abs	opcode, opcode wc
 			muxc	pat_first_im+1, mov_neg_mask	    ' set NEG if c, MOV if nc
-			movs	pat_first_im+1, address
+			movs	pat_first_im+1, opcode
 			movs	ccopy, #pat_first_im
-			jmp	#ccopy_next
+			mov	last_im_valid, #1
+			jmp	#ccopy_im_valid
 
 pat_first_im
 			call	#push_tos
@@ -711,8 +732,11 @@ write_io_long           wrlong  address, io_port_addr 'Set port address
 '
 ' copy CNT cog longs
 ' then jump back to nexti
-'
+' also marks last_im valid to be 0
 ccopy_next
+			mov	last_im_valid, #0
+ccopy_im_valid
+
 ccopy
 			mov 0-0, 0-0
 			add ccopy, cstep
@@ -852,6 +876,7 @@ do_compile
 			'' if we arrived here by falling through
 			'' then the high bit of im_flag is set and we
 			'' should keep it
+			mov	last_im_valid, #0
 			mov	memp, t2
 			sub	memp, #1
 			xor	memp, #%11		'XOR for endianness
@@ -1017,6 +1042,9 @@ prev_cache_tag		long	$EEEEEEEE
 prev_cache_base		long	icache1
 #endif
 
+last_im_valid		long 0		' flag, if nonzero last_im holds tos
+last_im			long 0
+
 ''
 '' L2 cache addr
 ''
@@ -1024,7 +1052,7 @@ l2tags_addr		long 0
 l2data_addr		long 0
 
 '------------------------------------------------------------------------------
-                        fit     $1f0  ' $198 works, $170 would be ideal, $1F0 is whole thing
+                        fit     $1f0  ' $1d0 works, $1F0 is whole thing
 
 '---------------------------------------------------------------------------------------------------------
 'The End.
