@@ -82,14 +82,16 @@ int main(int argc, char* argv[])
 {
     clock_t start, end;
 
-#ifdef __zpu__NEVER
+#ifdef __zpu__
     byteswap(testVector, sizeof(testVector));
+#endif
+#ifdef NEVER
     byteswap(key, sizeof(key));
 #endif
     start = clock();
     btea (testVector, -blockSize, (uint32_t*) key);
     end = clock();
-#ifdef __zpu__NEVER
+#ifdef __zpu__
     byteswap(testVector, sizeof(testVector));
 #endif
     printf("%s\n", (char*)testVector);

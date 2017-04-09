@@ -91,10 +91,11 @@ CON
 '' define TWO_LINE_CACHE for a 2 way cache
 '' otherwise we have only a single line
 #define TWO_LINE_CACHE
+'CACHE_LINE_SIZE = 8
 'CACHE_LINE_SIZE = 16
-CACHE_LINE_SIZE = 32
+CACHE_LINE_SIZE = 32 ' biggest for TWO_LINE_CACHE
 
-'CACHE_LINE_SIZE = 64
+'CACHE_LINE_SIZE = 64 ' biggest for single line
 CACHE_LINE_MASK = (CACHE_LINE_SIZE-1)
 
 ' These are the SPIN byte codes for mul and div
