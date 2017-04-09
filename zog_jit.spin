@@ -90,13 +90,18 @@ CON
 ' 4 or 8 is probably good if we expect a lot of misses
 '' define TWO_LINE_CACHE for a 2 way cache
 '' otherwise we have only a single line
-#define TWO_LINE_CACHE
-'CACHE_LINE_SIZE = 8
-'CACHE_LINE_SIZE = 16
-CACHE_LINE_SIZE = 32 ' biggest for TWO_LINE_CACHE
 
-'CACHE_LINE_SIZE = 64 ' biggest for single line
+#define TWO_LINE_CACHE
+'CACHE_LINE_BITS = 3
+CACHE_LINE_BITS = 4
+'CACHE_LINE_BITS = 5 ' biggest for TWO_LINE_CACHE
+'CACHE_LINE_BITS = 6 ' biggest for single line
+CACHE_LINE_SIZE = (1<<CACHE_LINE_BITS)
 CACHE_LINE_MASK = (CACHE_LINE_SIZE-1)
+
+L2_CACHE_LINES = 16  ' number of lines in the L2 cache
+L2_CACHE_MASK = (L2_CACHE_LINES-1)
+L2_CACHE_SIZE = (L2_CACHE_LINES * CACHE_LINE_SIZE)
 
 ' These are the SPIN byte codes for mul and div
 SPIN_MUL_OP     = $F4  '(multiply, return lower 32 bits)
@@ -238,6 +243,16 @@ dispatch_table
 {3E}                    cmp     pat_mult16x16, #emit_literal2	' compile mult16x16
 {3F}                    cmp     pat_callrelpc,  #emit_literal2 	' compile callrelpc
 
+{  The L2 cache starts immediately after the dispatch table
+   first come the tags, then the actual data
+   if we don't need to start more than one cog, the l2data could overlay
+   the PASM instructions
+}
+
+l2tags
+			long $deadbeef[L2_CACHE_LINES]
+l2data
+			long 0[L2_CACHE_SIZE*2]
 
 '------------------------------------------------------------------------------
 ' actual COG code starts below
@@ -761,10 +776,70 @@ zpu_mult16x16_ret
 			ret
 
 '------------------------------------------------------------------------------
+' routine for fast transfer of COG memory to/from hub
+' "address" is the HUB memory address
+' "cogaddr" is the COG memory address
+' "temp"    is the number of *bytes* to transfer
+' the Z bit is set if we want to read, clear if we want to write
+'
+' The idea is based on code posted by Kuroneko in the
+' "Fastest possible memory transfer" thread on the
+' Parallax forums, modified slightly for arbitrary buffers.
+' Note that the number of longs must be a multiple of 2
+'------------------------------------------------------------------------------
+cogaddr		long 0
+' this mask controls the R bit; if it is set then we read
+' if it is clear then we write
+rdwrtoggle	long %000000_0010_0000_000000000_000000000
+
+cogxfr
+		muxz	lbuf0, rdwrtoggle
+		muxz	lbuf1, rdwrtoggle
+xfer
+		add	temp, #7
+		andn	temp, #7	' round up
+		' point to last byte in HUB buffer
+		add	address, temp
+		sub	address, #1
+		' point to last longs in cog memory
+		shr	temp, #2      ' convert to longs
+		sub	cogaddr, #1
+		add	cogaddr, temp
+		movd	lbuf0, cogaddr
+		sub	cogaddr, #1
+		movd	lbuf1, cogaddr
+		sub	temp, #2
+		movi	address, temp	' set high bits of hub address
+
+lbuf0		rdlong	0-0, address
+		sub	lbuf0, dst2
+		sub	address, i2s7 wc
+lbuf1		rdlong  0-0, address
+		sub	lbuf1, dst2
+if_nc		djnz	address, #lbuf0
+
+cogrdwr_ret
+		ret
+		'' initialized data and presets
+dst2		long	2 << 9
+i2s7		long	(2<<23) | 7
+
+'------------------------------------------------------------------------------
 ' fill a cache line with translated instructions
 ' cur_pc points to the start of the cache line we need
+' first we need to check to see if the code is in the L2 cache
+' if it is, we can just load it
+' otherwise, we compile it into the internal cache
+' and then write the compiled code out to L2
 '------------------------------------------------------------------------------
 fill
+			''
+			'' check for L2 hit
+			''
+			mov	t2, cur_cache_tag
+			shr	t2, #(CACHE_LINE_BITS-2)
+			add	t2, l2tags_addr
+
 			movd	ccopy, cur_cache_base
 			mov	t2, cur_cache_tag
 			add	t2, zpu_memory_addr
@@ -904,6 +979,10 @@ dbg_data                add     temp, #4
 debug_addr              mov     debug_addr, temp     'HUB address of debug register
 
 aux_opcode		mov	cur_pc, #0  	     ' implementation data for translating current opcode byte
+			mov	l2tags_addr, dispatch_tab_addr
+			add	l2tags_addr, #$3F*4
+			mov	l2data_addr, l2tags_addr
+			add	l2data_addr, #L2_CACHE_LINES*4
 			jmp	#set_pc
 
 im_flag			long	emit_first_im    ' selects pattern for IM
@@ -935,7 +1014,11 @@ prev_cache_tag		long	$EEEEEEEE
 prev_cache_base		long	icache1
 #endif
 
-
+''
+'' L2 cache addr
+''
+l2tags_addr		long 0
+l2data_addr		long 0
 
 '------------------------------------------------------------------------------
                         fit     $1F0  ' $198 works, $170 would be ideal, $1F0 is whole thing
