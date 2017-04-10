@@ -92,14 +92,11 @@ CON
 ' note that internally we need 8 times this much space (each ZPU
 ' instruction maps to two PASM instructions)
 '
-'' define TWO_LINE_CACHE for a 2 way internal cache
-'' otherwise we have only a single line
 
-#define TWO_LINE_CACHE
 'CACHE_LINE_BITS = 3
-CACHE_LINE_BITS = 4
-'CACHE_LINE_BITS = 5 ' biggest for TWO_LINE_CACHE
-'CACHE_LINE_BITS = 6 ' biggest for single line
+CACHE_LINE_BITS = 4 ' a good default
+'CACHE_LINE_BITS = 5
+'CACHE_LINE_BITS = 6
 CACHE_LINE_SIZE = (1<<CACHE_LINE_BITS)
 CACHE_LINE_MASK = (CACHE_LINE_SIZE-1)
 
