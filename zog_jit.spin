@@ -209,8 +209,8 @@ dispatch_table
 {1E}                    cmp     0, #emit_addsp
 {1F}                    cmp     0, #emit_addsp
 
-{20}                    cmp     0, #emit_emulate ' reset??
-{21}                    cmp     0, #emit_emulate ' interrupt??
+{20}                    cmp     pat_illegal, #emit_literal2 ' reset??
+{21}                    cmp     pat_illegal, #emit_literal2 ' interrupt??
 {22}                    cmp     0, #emit_emulate ' loadh
 {23}                    cmp     0, #emit_emulate ' storeh
 {24}        if_b        cmps    imp_cmp_signed,   #emit_cmp ' lessthan
@@ -238,8 +238,7 @@ dispatch_table
 {39}                    cmp     pat_poppcrel, #emit_literal2 ' poppcrel
 {3A}                    cmp     0, #emit_emulate ' config
 {3B}                    cmp     pat_pushpc, #emit_literal2	' compile pushpc
-'''{3C}                    cmp     pat_syscall, #emit_literal2 	' compile syscall
-{3C}                    cmp     pat_breakpoint, #emit_literal2 	' compile syscall
+{3C}                    cmp     pat_illegal, #emit_literal2 	' compile syscall
 {3D}                    cmp     pat_pushspadd,  #emit_literal2  ' compile pushspadd
 {3E}                    cmp     pat_mult16x16, #emit_literal2	' compile mult16x16
 {3F}                    cmp     pat_callrelpc,  #emit_literal2 	' compile callrelpc
