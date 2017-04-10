@@ -93,8 +93,8 @@ CON
 ' instruction maps to two PASM instructions)
 '
 
-'CACHE_LINE_BITS = 3
-CACHE_LINE_BITS = 4 ' a good default
+CACHE_LINE_BITS = 3
+'CACHE_LINE_BITS = 4 ' a good default
 'CACHE_LINE_BITS = 5
 'CACHE_LINE_BITS = 6
 CACHE_LINE_SIZE = (1<<CACHE_LINE_BITS)
@@ -211,8 +211,8 @@ dispatch_table
 
 {20}                    cmp     pat_illegal, #emit_literal2   	' reset??
 {21}                    cmp     pat_illegal, #emit_literal2     ' interrupt??
-{22}                    cmp     0, #emit_emulate 	' loadh
-{23}                    cmp     0, #emit_emulate 	' storeh
+{22}                    cmp     pat_loadh,   #emit_literal2 	' loadh
+{23}                    cmp     pat_storeh,  #emit_literal2 	' storeh
 {24}        if_b        cmps    imp_cmp_signed,   #emit_cmp     ' lessthan
 {25}        if_be       cmps    imp_cmp_signed,   #emit_cmp 	' lessthanorequal
 {26}        if_b        cmp     imp_cmp_unsigned, #emit_cmp 	' ulessthan
@@ -229,8 +229,8 @@ dispatch_table
 {30}                    cmp     pat_neg, #emit_literal2	        ' compile zpu_neg
 {31}                    sub     0, #emit_binaryop 		' sub
 {32}                    xor     0, #emit_binaryop 		' xor
-{33}                    cmp     0, #emit_emulate ' loadb
-{34}                    cmp     0, #emit_emulate ' storeb
+{33}                    cmp     pat_loadb,  #emit_literal2 	' loadb
+{34}                    cmp     pat_storeb, #emit_literal2 	' storeb
 {35}                    cmp     pat_div, #emit_literal2		' div
 {36}                    cmp     pat_mod, #emit_literal2 	' mod
 {37}        if_z        cmp     0, #emit_condbranch 		' eqbranch
@@ -579,6 +579,49 @@ imp_emulate
 pat_neg
 			neg	tos,tos
 			nop
+
+
+pat_loadh
+			xor	tos, #%10		' ENDIAN fix
+			call	#imp_loadh
+imp_loadh
+			add	tos, zpu_memory_addr
+			rdword	tos, tos
+imp_loadh_ret		ret
+
+pat_storeh
+			call	#pop_tos
+			call	#imp_storeh
+
+imp_storeh
+			xor	data, #%10		' ENDIAN fix
+			add	data, zpu_memory_addr
+			wrword	tos, data
+			call	#pop_tos
+imp_storeh_ret		ret
+
+
+pat_loadb
+			xor	tos, #%11		' ENDIAN fix
+			call	#imp_loadb
+imp_loadb
+			add	tos, zpu_memory_addr
+			rdbyte	tos, tos
+imp_loadb_ret		ret
+
+pat_storeb
+			call	#pop_tos
+			call	#imp_storeb
+
+imp_storeb
+			xor	data, #%11		' ENDIAN fix
+			add	data, zpu_memory_addr
+			wrbyte	tos, data
+			call	#pop_tos
+imp_storeb_ret		ret
+
+
+
 pat_pushpc
 			jmpret	intern_pc, #imp_pushpc  '' set intern_pc for get_next_pc
 			nop		   		'' do not put jmpret intern_pc last in cache line
