@@ -219,12 +219,12 @@ dispatch_table
 {27}        if_be       cmp     imp_cmp_unsigned, #emit_cmp 	' ulessthanorequal
 {28}                    cmp     0, #emit_emulate ' swap
 {29}                    cmp     pat_mult, #emit_literal2	' compile multiply
-{2A}                    shr     0, #emit_binaryop ' lshiftright
-{2B}                    shl     0, #emit_binaryop ' ashiftleft
-{2C}                    sar     0, #emit_binaryop ' ashiftright
+{2A}                    shr     0, #emit_binaryop 		' lshiftright
+{2B}                    shl     0, #emit_binaryop 		' ashiftleft
+{2C}                    sar     0, #emit_binaryop 		' ashiftright
 {2D}                    cmp     0, #emit_emulate ' call
-{2E}        if_z        cmp     imp_cmp_unsigned, #emit_cmp ' eq
-{2F}        if_nz       cmp     imp_cmp_unsigned, #emit_cmp ' neq
+{2E}        if_z        cmp     imp_cmp_unsigned, #emit_cmp	' eq
+{2F}        if_nz       cmp     imp_cmp_unsigned, #emit_cmp 	' neq
 
 {30}                    cmp     pat_neg, #emit_literal2	        ' compile zpu_neg
 {31}                    sub     0, #emit_binaryop 		' sub
