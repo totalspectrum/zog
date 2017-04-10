@@ -235,7 +235,7 @@ dispatch_table
 {36}                    cmp     0, #emit_emulate ' mod
 {37}        if_z        cmp     0, #emit_condbranch ' eqbranch
 {38}        if_nz       cmp     0, #emit_condbranch ' neqbranch
-{39}                    cmp     0, #emit_emulate ' poppcrel
+{39}                    cmp     pat_poppcrel, #emit_literal2 ' poppcrel
 {3A}                    cmp     0, #emit_emulate ' config
 {3B}                    cmp     pat_pushpc, #emit_literal2	' compile pushpc
 '''{3C}                    cmp     pat_syscall, #emit_literal2 	' compile syscall
@@ -504,6 +504,14 @@ pat_poppc
                         call    #pop_tos
                         jmp     #set_pc_data
 
+pat_poppcrel
+                        jmpret  intern_pc, #imp_poppcrel '' set intern_pc for get_next_pc
+			nop
+imp_poppcrel
+			call	#get_next_pc
+			call	#pop_tos
+			jmp	#set_pc_rel_data
+			
 pat_addsp0
 			add	tos, tos
 			nop
