@@ -106,8 +106,8 @@ L2_CACHE_MASK = (L2_CACHE_LINES-1)
 L2_CACHE_SIZE = (L2_CACHE_LINES * CACHE_LINE_SIZE)
 
 ' These are the SPIN byte codes for mul and div
-SPIN_DIV_OP     = $F6  '(divide, return quotient 32 bits)
-SPIN_REM_OP     = $F7  '(divide, return remainder 32 bits)
+SPIN_DIV_OP     = 0  '(divide, return quotient 32 bits)
+SPIN_REM_OP     = 1  '(divide, return remainder 32 bits)
 
 'I/O control block commands
 io_cmd_out      = $01
@@ -209,14 +209,14 @@ dispatch_table
 {1E}                    cmp     0, #emit_addsp
 {1F}                    cmp     0, #emit_addsp
 
-{20}                    cmp     pat_illegal, #emit_literal2 ' reset??
-{21}                    cmp     pat_illegal, #emit_literal2 ' interrupt??
-{22}                    cmp     0, #emit_emulate ' loadh
-{23}                    cmp     0, #emit_emulate ' storeh
-{24}        if_b        cmps    imp_cmp_signed,   #emit_cmp ' lessthan
-{25}        if_be       cmps    imp_cmp_signed,   #emit_cmp ' lessthanorequal
-{26}        if_b        cmp     imp_cmp_unsigned, #emit_cmp ' ulessthan
-{27}        if_be       cmp     imp_cmp_unsigned, #emit_cmp ' ulessthanorequal
+{20}                    cmp     pat_illegal, #emit_literal2   	' reset??
+{21}                    cmp     pat_illegal, #emit_literal2     ' interrupt??
+{22}                    cmp     0, #emit_emulate 	' loadh
+{23}                    cmp     0, #emit_emulate 	' storeh
+{24}        if_b        cmps    imp_cmp_signed,   #emit_cmp     ' lessthan
+{25}        if_be       cmps    imp_cmp_signed,   #emit_cmp 	' lessthanorequal
+{26}        if_b        cmp     imp_cmp_unsigned, #emit_cmp 	' ulessthan
+{27}        if_be       cmp     imp_cmp_unsigned, #emit_cmp 	' ulessthanorequal
 {28}                    cmp     0, #emit_emulate ' swap
 {29}                    cmp     pat_mult, #emit_literal2	' compile multiply
 {2A}                    shr     0, #emit_binaryop ' lshiftright
@@ -226,21 +226,21 @@ dispatch_table
 {2E}        if_z        cmp     imp_cmp_unsigned, #emit_cmp ' eq
 {2F}        if_nz       cmp     imp_cmp_unsigned, #emit_cmp ' neq
 
-{30}                    cmp     pat_neg, #emit_literal2	' compile zpu_neg
-{31}                    sub     0, #emit_binaryop ' sub
-{32}                    xor     0, #emit_binaryop ' xor
+{30}                    cmp     pat_neg, #emit_literal2	        ' compile zpu_neg
+{31}                    sub     0, #emit_binaryop 		' sub
+{32}                    xor     0, #emit_binaryop 		' xor
 {33}                    cmp     0, #emit_emulate ' loadb
 {34}                    cmp     0, #emit_emulate ' storeb
-{35}                    cmp     0, #emit_emulate ' div
-{36}                    cmp     0, #emit_emulate ' mod
-{37}        if_z        cmp     0, #emit_condbranch ' eqbranch
-{38}        if_nz       cmp     0, #emit_condbranch ' neqbranch
-{39}                    cmp     pat_poppcrel, #emit_literal2 ' poppcrel
-{3A}                    cmp     0, #emit_emulate ' config
-{3B}                    cmp     pat_pushpc, #emit_literal2	' compile pushpc
+{35}                    cmp     pat_div, #emit_literal2		' div
+{36}                    cmp     pat_mod, #emit_literal2 	' mod
+{37}        if_z        cmp     0, #emit_condbranch 		' eqbranch
+{38}        if_nz       cmp     0, #emit_condbranch 		' neqbranch
+{39}                    cmp     pat_poppcrel, #emit_literal2 	' poppcrel
+{3A}                    cmp     pat_config,   #emit_literal2 	' config
+{3B}                    cmp     pat_pushpc,  #emit_literal2	' compile pushpc
 {3C}                    cmp     pat_illegal, #emit_literal2 	' compile syscall
 {3D}                    cmp     pat_pushspadd,  #emit_literal2  ' compile pushspadd
-{3E}                    cmp     pat_mult16x16, #emit_literal2	' compile mult16x16
+{3E}                    cmp     pat_mult16x16,  #emit_literal2	' compile mult16x16
 {3F}                    cmp     pat_callrelpc,  #emit_literal2 	' compile callrelpc
 
 {  The L2 cache starts immediately after the dispatch table
@@ -624,12 +624,22 @@ imp_pushspadd_ret
 			ret
 
 
+pat_config
+			mov	cpu, tos
+			call	#pop_tos
+
 pat_mult
                         call    #pop_tos
 			call	#imp_mult
 pat_mult16x16
                         call    #pop_tos
 			call	#imp_mult16x16
+
+pat_div			mov	div_flags, #SPIN_DIV_OP
+			call	#imp_div
+
+pat_mod			mov	div_flags, #SPIN_REM_OP
+			call	#imp_div
 
 '------------------------------------------------------------------------------
 
@@ -822,6 +832,37 @@ imp_mult_ret
 imp_mult16x16_ret
 			ret
 			
+'------------------------------------------------------------------------------
+{{==    div_flags: xxxx_invert result_store remainder   ==}}
+{{==    NOTE: Caller must not allow data == 0!!!!       ==}}
+imp_div
+			call	#pop_tos
+			
+fast_div                ' tos = tos / data
+                        ' handle the signs, and check for a 0 divisor
+                        and     div_flags, #1   wz      ' keep only the 0 bit, and remember if it's a 0
+                        abs     t1, data        wc
+             if_z_and_c or      div_flags, #2           ' data was negative, and we're looking for quotient, so set bit 1 hi
+                        abs     data, tos       wc
+              if_c      xor     div_flags, #2           ' tos was negative, invert bit 1 (quotient or remainder)
+                        ' align the divisor to the leftmost bit
+                        neg     t2, #1          wc      ' count how many times we shift (negative)
+:align_loop             rcl     t1, #1          wc      ' left shift the divisior, marking when we hit a 1
+              if_nc     djnz    t2, #:align_loop        ' the divisior MUST NOT BE 0
+                        rcr     t1, #1                  ' restore the 1 bit we just nuked
+                        neg     t2, t2                  ' how many times did we shift? (we started at -1 and counted down)
+                        ' perform the division
+                        mov     tos, #0
+:div_loop               cmpsub  data, t1        wc      ' does the divisor fit into the dividend?
+                        rcl     tos, #1                 ' if it did, store a one while shifting left
+                        shr     t1, #1                  '
+                        djnz    t2, #:div_loop
+                        ' correct the sign
+                        shr     div_flags, #1   wc,wz
+              if_c      mov     tos, data               ' user wanted the remainder, not the quotient
+                        negnz   tos, tos                ' need to invert the result
+imp_div_ret            ret
+
 '------------------------------------------------------------------------------
 ' routine for fast transfer of COG memory to/from hub
 ' "hubaddr"   is the HUB memory address
