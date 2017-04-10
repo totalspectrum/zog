@@ -506,7 +506,7 @@ pat_poppc
 
 pat_poppcrel
                         jmpret  intern_pc, #imp_poppcrel '' set intern_pc for get_next_pc
-			nop
+			nop		   		 '' note: jmpret intern_pc cannot come last in a cache line
 imp_poppcrel
 			call	#get_next_pc
 			call	#pop_tos
@@ -566,7 +566,7 @@ imp_popsp_ret
 
 pat_emulate
 			mov	address, #0-0
-			jmpret	intern_pc, #imp_emulate  '' get_next_pc needs intern_pc set
+			jmpret	intern_pc, #imp_emulate  '' FIXME: jmpret last in cache is a problem! get_next_pc needs intern_pc set
 
 imp_emulate
 			call	#get_next_pc
@@ -581,9 +581,10 @@ pat_neg
 			neg	tos,tos
 			nop
 pat_pushpc
-                        call    #push_tos
 			jmpret	intern_pc, #imp_pushpc  '' set intern_pc for get_next_pc
+			nop		   		'' do not put jmpret intern_pc last in cache line
 imp_pushpc
+                        call    #push_tos
 			call	#get_next_pc
                         mov     tos, cur_pc
 			sub	tos, #1
@@ -591,8 +592,8 @@ imp_pushpc
 
 
 pat_callrelpc
-			mov	data, tos
 			jmpret	intern_pc, #call_pc_rel	'' uses get_next_pc, needs internal pc
+			nop		   		'' note that jmpret intern_pc, xxx cannot come second in any sequence
 
 
 pat_compare
@@ -652,6 +653,7 @@ get_next_pc_ret
 ' must be called with jmpret intern_pc, #call_pc_rel
 ' assumes that data contains the offset
 call_pc_rel
+			mov	data, tos
 			call	#get_next_pc
 			mov	tos, cur_pc		' save next pc
 			'' fall through
