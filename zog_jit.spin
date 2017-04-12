@@ -401,6 +401,51 @@ loadsp_call		call	#imp_loadsp
 storesp_call		call	#imp_storesp
 
 
+pat_store
+                        call    #pop_tos
+			call	#imp_store
+
+pat_popsp
+                        mov     sp, tos
+			call	#imp_popsp
+
+pat_neg
+			neg	tos,tos
+			nop
+
+
+pat_pushpc
+			jmpret	intern_pc, #imp_pushpc  '' set intern_pc for get_next_pc
+			nop		   		'' do not put jmpret intern_pc last in cache line
+
+
+pat_callrelpc
+			jmpret	intern_pc, #call_pc_rel	'' uses get_next_pc, needs internal pc
+			nop		   		'' note that jmpret intern_pc, xxx cannot come second in any sequence
+
+
+pat_compare
+			jmpret	cmp_ret, #0-0	' 0-0 is replaced by imp_cmp_unsigned or imp_cmp_signed
+	if_never	mov	tos, #1
+
+
+pat_config
+			mov	cpu, tos
+			call	#pop_tos
+
+pat_mult
+                        call    #pop_tos
+			call	#imp_mult
+pat_mult16x16
+                        call    #pop_tos
+			call	#imp_mult16x16
+
+pat_div			mov	div_flags, #SPIN_DIV_OP
+			call	#imp_div
+
+pat_mod			mov	div_flags, #SPIN_REM_OP
+			call	#imp_div
+
 ''
 '' compile a zpu_load instruction (tos -> *tos)
 '' normally this uses pat_load, but if we know the current immediate we may be able to
@@ -493,6 +538,10 @@ pat_flip
                         rev     tos, #32
 			nop
 
+
+			'' this has to fit in the available cache space
+			fit	$100
+			
 '------------------------------------------------------------------------------
 ' RUNTIME support code
 '------------------------------------------------------------------------------
@@ -540,22 +589,16 @@ imp_addsp
 imp_addsp_ret
 			ret
 
-pat_store
-                        call    #pop_tos
-			call	#imp_store
-			'' the 2 instructions above will execute out of cache,
-			'' then continue here
 imp_store
+			'' we previously did a pop_tos in cache
                         mov     address, data
                         call    #pop_tos
                         call    #write_long
 imp_store_ret
                         ret
 
-pat_popsp
-                        mov     sp, tos
-			call	#imp_popsp
 imp_popsp
+			'' before this we did a mov sp, tos
 			add	sp, zpu_memory_addr
 			rdlong	tos, sp
 imp_popsp_ret
@@ -573,11 +616,6 @@ imp_emulate
 			shl	address, #5
                         mov     cur_pc, address                'Op code to PC
                         jmp     #set_pc
-
-
-pat_neg
-			neg	tos,tos
-			nop
 
 
 pat_loadh
@@ -621,9 +659,6 @@ imp_storeb_ret		ret
 
 
 
-pat_pushpc
-			jmpret	intern_pc, #imp_pushpc  '' set intern_pc for get_next_pc
-			nop		   		'' do not put jmpret intern_pc last in cache line
 imp_pushpc
                         call    #push_tos
 			call	#get_next_pc
@@ -631,15 +666,6 @@ imp_pushpc
 			sub	tos, #1
                         jmp	intern_pc
 
-
-pat_callrelpc
-			jmpret	intern_pc, #call_pc_rel	'' uses get_next_pc, needs internal pc
-			nop		   		'' note that jmpret intern_pc, xxx cannot come second in any sequence
-
-
-pat_compare
-			jmpret	cmp_ret, #0-0	' 0-0 is replaced by imp_cmp_unsigned or imp_cmp_signed
-	if_never	mov	tos, #1
 
 imp_cmp_unsigned
                         call    #pop_tos
@@ -665,23 +691,6 @@ imp_pushspadd
 imp_pushspadd_ret
 			ret
 
-
-pat_config
-			mov	cpu, tos
-			call	#pop_tos
-
-pat_mult
-                        call    #pop_tos
-			call	#imp_mult
-pat_mult16x16
-                        call    #pop_tos
-			call	#imp_mult16x16
-
-pat_div			mov	div_flags, #SPIN_DIV_OP
-			call	#imp_div
-
-pat_mod			mov	div_flags, #SPIN_REM_OP
-			call	#imp_div
 
 '------------------------------------------------------------------------------
 
