@@ -927,11 +927,13 @@ hubcnt		long 0
 rdins	   	rdlong	0-0, hubaddr
 wrins		wrlong	0-0, hubaddr
 
-cogxfr
-  if_c		mov	lbuf0, rdins
-  if_nc		mov	lbuf0, wrins
+cogxfr_write
+		mov	lbuf0, wrins
+		jmp	#doxfer
+cogxfr_read
+  		mov	lbuf0, rdins
+doxfer
 		mov	lbuf1, lbuf0
-xfer
 		add	hubcnt, #7
 		andn	hubcnt, #7	' round up
 		' point to last byte in HUB buffer
@@ -954,7 +956,8 @@ lbuf1		rdlong  0-0, hubaddr
 		sub	lbuf1, dst2
 if_nc		djnz	hubaddr, #lbuf0
 
-cogxfr_ret
+cogxfr_read_ret
+cogxfr_write_ret
 		ret
 		'' initialized data and presets
 dst2		long	2 << 9
@@ -992,8 +995,7 @@ fill
     			'' OK, all we have to do here is to read the
 			'' data in
 fill_and_ret
-			shr	word_mask, #1 nr,wc	' set C bit for read
-			call	#cogxfr
+			call	#cogxfr_read
 fill_ret
 			ret
 do_compile
