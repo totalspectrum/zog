@@ -277,7 +277,7 @@ icache0_end
 '' just compile the 2 instructions pointed to by the dest field
 emit_literal2
 			shr	aux_opcode, #9	' extract dest field
-			movs	ccopy, aux_opcode
+			movd	ccopy, aux_opcode
 			jmp	#ccopy_next
 
 ''
@@ -291,17 +291,12 @@ emit_literal2
 ''
 
 fixup_first_im
-			mov	y, ccopy
-			shr	y, #9	'' extract pointer to next output
-			sub	y, #1	'' back up to mov tos, #0-0
-			movs	fixup1, y
-			movd	ccopy, y	'' update the next output pointer
-			sub	y, #1	'' back up again
-			movd	fixup2, y
-fixup1			mov	y, 0-0	'' load the actual mov instruction
+			sub	ccopy_hubptr, #4	' back up to previous mov tos, #0-0
+			rdlong	y, ccopy_hubptr	' load the actual mov instruction
+			sub	ccopy_hubptr, #4	' back up to "call #push_tos"
 			movd	y, #data	'' replace "tos" with "data"
-fixup2			mov	0-0, y	'' store the modified instruction over top of call #push_tos
-
+			wrlong	y, ccopy_hubptr	'' store the modified instruction over top of call #push_tos
+			add	ccopy_hubptr, #4
 fixup_first_im_ret	ret
 
 '' compile a binary operator
@@ -310,7 +305,7 @@ fixup_first_im_ret	ret
 emit_binaryop
 			shr	aux_opcode, #23		' extract instruction field
 			movi	pat_binaryop+1, aux_opcode
-			movs	ccopy, #pat_binaryop	' set up to copy instructions
+			movd	ccopy, #pat_binaryop	' set up to copy instructions
 			test	last_im_valid, #1 wz
   if_z			jmp	#ccopy_next		' copy them into place
 
@@ -321,7 +316,7 @@ emit_binaryop
 			''
 emit_binaryop_known_val
 			call	#fixup_first_im	' overwrite the old first_im instruction
-			movs	ccopy, #pat_binaryop+1
+			movd	ccopy, #pat_binaryop+1
 			jmp	#ccopy3_next
 pat_binaryop
 			call	#pop_tos
@@ -334,14 +329,14 @@ emit_addsp
 			and	address, #$0F
             		shl	address, #2
 	    		movs	pat_addsp, address
-	    		movs	ccopy, #pat_addsp
+	    		movd	ccopy, #pat_addsp
 			jmp	#ccopy_next
 
 			'' compile an emulate sequence
 emit_emulate
 			sub	address, #32
 			movs	pat_emulate, address
-			movs	ccopy, #pat_emulate
+			movd	ccopy, #pat_emulate
 			jmp	#ccopy_next
 			
 
@@ -354,7 +349,7 @@ emit_condbranch
 			andn	pat_condbranch+1, con_mask
 			or	pat_condbranch+1, aux_opcode
 			'' and copy instructions
-			movs   ccopy, #pat_condbranch
+			movd   ccopy, #pat_condbranch
 			jmp    #ccopy_next
 
 pat_condbranch
@@ -383,7 +378,7 @@ emit_cmp
 			andn	pat_compare+1, con_mask
 			or	pat_compare+1, aux_opcode
 			'' and copy instructions
-			movs   ccopy, #pat_compare
+			movd   ccopy, #pat_compare
 			jmp    #ccopy_next
 			
 			' mask for condition codes
@@ -400,7 +395,7 @@ loadst_do
                         xor     address, #$10           'Trust me, you need this.
                         shl     address, #2
 			movs	pat_loadstoresp, address
-			movs	ccopy, #pat_loadstoresp
+			movd	ccopy, #pat_loadstoresp
 			jmp	#ccopy_next
 			
 pat_loadstoresp
@@ -434,7 +429,7 @@ emit_load		test	last_im_valid, #1 wz
 			test	last_im, io_mask wz	'' are any high bits set?
 	if_nz		jmp	#emit_literal2
 			'' optimize to a fast hub read
-			movs	ccopy, #pat_fastload
+			movd	ccopy, #pat_fastload
 			jmp	#ccopy_next
 			
 '' compile zpu_im instructions
@@ -457,7 +452,7 @@ emit_first_im
 			abs	opcode, opcode wc
 			muxc	pat_first_im+1, mov_neg_mask	    ' set NEG if c, MOV if nc
 			movs	pat_first_im+1, opcode
-			movs	ccopy, #pat_first_im
+			movd	ccopy, #pat_first_im
 			mov	last_im_valid, #1
 			jmp	#ccopy_im_valid
 
@@ -468,7 +463,7 @@ pat_first_im
 emit_later_im
                         and     address, #$7F
                        	movs    pat_later_im+1, address
-			movs	ccopy, #pat_later_im
+			movd	ccopy, #pat_later_im
                         jmp     #ccopy_next
 pat_later_im
 			shl	tos, #7
@@ -823,7 +818,7 @@ write_io_long           wrlong  address, io_port_addr 'Set port address
 
 '------------------------------------------------------------------------------
 '
-' copy CNT cog longs
+' copy CNT cog longs to hub at hubptr
 ' then jump back to nexti
 ' also marks last_im valid to be 0
 ccopy_next
@@ -833,11 +828,13 @@ ccopy_im_valid
 ccopy2
 			mov	cnt, #2
 ccopy
-			mov 0-0, 0-0
+			wrlong 0-0, ccopy_hubptr
 			add ccopy, cstep
+			add ccopy_hubptr, #4
 			djnz cnt, #ccopy
 			jmp  #nexti
-cstep			long (1<<9) + 1
+cstep			long (1<<9)
+ccopy_hubptr		long 0
 
 ccopy3_next		mov	cnt, #3
 			mov	last_im_valid, #0
@@ -922,9 +919,6 @@ cogaddr		long 0
 hubaddr		long 0
 hubcnt		long 0
 
-' this mask controls the R bit; if it is set then we read
-' if it is clear then we write
-
 ' NOTE: the instructions at lbuf0 and lbuf1 can be destroyed if
 ' we count down below 0 (where the cache starts) so we have to
 ' refresh them each time
@@ -997,14 +991,14 @@ fill
 
     			'' OK, all we have to do here is to read the
 			'' data in
-			shr	word_mask, #1 nr,wc	' set C bit
 fill_and_ret
+			shr	word_mask, #1 nr,wc	' set C bit for read
 			call	#cogxfr
 fill_ret
 			ret
 do_compile
 			wrlong	cur_cache_tag, t2	' update new cache tag
-			movd	ccopy, #0      		' cache is at 0
+			mov	ccopy_hubptr, hubaddr   ' have to set hubptr to dest here
 			mov	t2, cur_cache_tag
 			add	t2, zpu_memory_addr
 			mov	t1, #CACHE_LINE_SIZE
@@ -1055,7 +1049,6 @@ transi
 nexti
 			djnz	t1, #transi
 
-			shl	word_mask, #0 nr,wc	' clear C bit
 			jmp	#fill_and_ret
 
 '------------------------------------------------------------------------------
