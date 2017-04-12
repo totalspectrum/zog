@@ -222,7 +222,7 @@ dispatch_table
 {2A}                    shr     0, #emit_binaryop 		' lshiftright
 {2B}                    shl     0, #emit_binaryop 		' ashiftleft
 {2C}                    sar     0, #emit_binaryop 		' ashiftright
-{2D}                    cmp     0, #emit_emulate ' call
+{2D}                    cmp     pat_call, #emit_literal2	' call
 {2E}        if_z        cmp     imp_cmp_unsigned, #emit_cmp	' eq
 {2F}        if_nz       cmp     imp_cmp_unsigned, #emit_cmp 	' neq
 
@@ -539,6 +539,10 @@ pat_flip
 			nop
 
 
+pat_call
+			jmpret	intern_pc, #imp_call	'' set intern_pc for get_next_pc
+			nop
+
 			'' this has to fit in the available cache space
 			'' fit $90 fails, fit $a0 is OK
 			fit	$a0
@@ -667,6 +671,12 @@ imp_pushpc
 			sub	tos, #1
                         jmp	intern_pc
 
+
+imp_call
+			mov	data, tos
+			call	#get_next_pc
+			mov	tos, cur_pc
+			jmp	#set_pc_data
 
 imp_cmp_unsigned
                         call    #pop_tos
