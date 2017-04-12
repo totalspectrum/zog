@@ -217,7 +217,7 @@ dispatch_table
 {25}        if_be       cmps    imp_cmp_signed,   #emit_cmp 	' lessthanorequal
 {26}        if_b        cmp     imp_cmp_unsigned, #emit_cmp 	' ulessthan
 {27}        if_be       cmp     imp_cmp_unsigned, #emit_cmp 	' ulessthanorequal
-{28}                    cmp     0, #emit_emulate ' swap
+{28}                    cmp     pat_swap, #emit_literal2 	' swap
 {29}                    cmp     pat_mult, #emit_literal2	' compile multiply
 {2A}                    shr     0, #emit_binaryop 		' lshiftright
 {2B}                    shl     0, #emit_binaryop 		' ashiftleft
@@ -334,14 +334,6 @@ emit_addsp
 	    		movd	ccopy, #pat_addsp
 			jmp	#ccopy_next
 
-			'' compile an emulate sequence
-emit_emulate
-			sub	address, #32
-			movs	pat_emulate, address
-			movd	ccopy, #pat_emulate
-			jmp	#ccopy_next
-			
-
 ''
 '' code for compiling conditional branches
 ''
@@ -413,6 +405,8 @@ pat_neg
 			neg	tos,tos
 			nop
 
+pat_swap		ror	tos, #16
+			nop
 
 pat_pushpc
 			jmpret	intern_pc, #imp_pushpc  '' set intern_pc for get_next_pc
@@ -608,19 +602,6 @@ imp_popsp
 			rdlong	tos, sp
 imp_popsp_ret
 			ret
-
-
-pat_emulate
-			mov	address, #0-0
-			jmpret	intern_pc, #imp_emulate  '' FIXME: jmpret last in cache is a problem! get_next_pc needs intern_pc set
-
-imp_emulate
-			call	#get_next_pc
-			call    #push_tos
-                        mov     tos, cur_pc               'Push return address
-			shl	address, #5
-                        mov     cur_pc, address                'Op code to PC
-                        jmp     #set_pc
 
 
 pat_loadh
