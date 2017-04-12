@@ -264,7 +264,11 @@ icache0
                         jmp     #init
 '------------------------------------------------------------------------------
 			long	0[2*CACHE_LINE_SIZE-1]
-icache0_end
+
+die			jmp	#die
+
+icache0_divert
+			nop		' replaced by last instruction of cache line
 			mov	cur_pc, cur_cache_tag
 			add	cur_pc, #CACHE_LINE_SIZE
 			jmp	#set_pc
@@ -1001,8 +1005,21 @@ fill_and_ret
 			mov    	hubcnt, #CACHE_LINE_SIZE*8
 			mov    	cogaddr, #0
 			call	#cogxfr_read
+
+			'' move the last instruction of the cache line into the divert area
+			'' and replace it with a jump to divert
+			mov	cogaddr, #CACHE_LINE_SIZE*2-1
+			movs	fillmov1, cogaddr
+			movd	fillmov1, #icache0_divert
+			movd	fillmov2, cogaddr
+			movs	jmpinst, #icache0_divert
+			
+fillmov1		mov	0-0, 0-0	' move to icache0_divert
+fillmov2		mov	0-0, jmpinst	' replace jump instruction
 fill_ret
 			ret
+jmpinst			jmp	#0
+
 do_compile
 			wrlong	cur_cache_tag, t2	' update new cache tag
 			mov	ccopy_hubptr, hubaddr   ' have to set hubptr to dest here
