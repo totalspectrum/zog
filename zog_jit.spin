@@ -272,6 +272,8 @@ icache0_end
 			
 '------------------------------------------------------------------------------
 ' COMPILATION ROUTINES
+' we place all the compilation routines here, together
+' things needed at run time should go later
 '------------------------------------------------------------------------------
 
 '' just compile the 2 instructions pointed to by the dest field
@@ -356,13 +358,6 @@ pat_condbranch
 			jmpret	intern_pc, #imp_condbranch  '' set intern_pc for get_next_pc
   if_z			jmp	#set_pc_rel_data
 
-imp_condbranch
-			call	#get_next_pc
-			call	#pop_tos
-			cmp	tos, #0 wz	'' condition code used when we return
-  			call	#discard_tos
-  			jmp	intern_pc	'' returns to pat_condbranch
-
 			' compile a signed or unsigned comparison
 			' function to call (cmp_unsigned_impl or
 			' cmp_signed_impl) is in dest field of aux_opcode
@@ -402,19 +397,6 @@ pat_loadstoresp
 			mov	address, #0-0
 			call	#imp_loadsp	'' this is actually a dummy that will be overwritten
 
-imp_loadsp
-                        add     address, sp
-                        call    #push_tos
-                        rdlong	tos, address
-imp_loadsp_ret
-                        ret
-
-imp_storesp
-                        add     address, sp
-                        wrlong	tos, address
-			jmp	#pop_tos	'' will return correctly from there
-			'' imp_storesp_ret is at pop_tos_ret
-			
 loadsp_call		call	#imp_loadsp
 storesp_call		call	#imp_storesp
 
@@ -469,15 +451,10 @@ pat_later_im
 			shl	tos, #7
 			or	tos, #0-0
 
-'------------------------------------------------------------------------------
-' PATTERNS FOR RUNTIME, together with any support functions
-'------------------------------------------------------------------------------
-
 pat_breakpoint
 			jmpret	intern_pc, #dummy	'' break calls get_next_pc
                         call    #break
 
-div_zero_error
 pat_illegal
 			call	#break
 			nop
@@ -485,14 +462,6 @@ pat_illegal
 pat_pushsp
                         call    #push_tos
 			call	#imp_pushsp
-			'' the 2 instructions above will execute out of cache,
-			'' then continue here
-imp_pushsp
-                        mov     tos, sp
-			sub	tos, zpu_memory_addr
-                        add     tos, #4
-imp_pushsp_ret
-			ret
 
 pat_poppc
                         call    #pop_tos
@@ -501,25 +470,13 @@ pat_poppc
 pat_poppcrel
                         jmpret  intern_pc, #imp_poppcrel '' set intern_pc for get_next_pc
 			nop		   		 '' note: jmpret intern_pc cannot come last in a cache line
-imp_poppcrel
-			call	#get_next_pc
-			call	#pop_tos
-			jmp	#set_pc_rel_data
-			
+
 pat_addsp0
 			add	tos, tos
 			nop
 pat_addsp
 			mov	address, #0-0
 			call	#imp_addsp
-			'' the 2 instructions above will execute out of cache,
-			'' then continue here
-imp_addsp
-			add	address, sp
-			rdlong	data, address
-			add	tos, data
-imp_addsp_ret
-			ret
 
 pat_load
                         mov     address, tos
@@ -535,6 +492,53 @@ pat_not
 pat_flip
                         rev     tos, #32
 			nop
+
+'------------------------------------------------------------------------------
+' RUNTIME support code
+'------------------------------------------------------------------------------
+
+imp_loadsp
+                        add     address, sp
+                        call    #push_tos
+                        rdlong	tos, address
+imp_loadsp_ret
+                        ret
+
+imp_storesp
+                        add     address, sp
+                        wrlong	tos, address
+			jmp	#pop_tos	'' will return correctly from there
+			'' imp_storesp_ret is at pop_tos_ret
+			
+imp_condbranch
+			call	#get_next_pc
+			call	#pop_tos
+			cmp	tos, #0 wz	'' condition code used when we return
+  			call	#discard_tos
+  			jmp	intern_pc	'' returns to pat_condbranch
+
+div_zero_error
+			call	#break
+			jmp	#div_zero_error
+
+imp_pushsp
+                        mov     tos, sp
+			sub	tos, zpu_memory_addr
+                        add     tos, #4
+imp_pushsp_ret
+			ret
+
+imp_poppcrel
+			call	#get_next_pc
+			call	#pop_tos
+			jmp	#set_pc_rel_data
+			
+imp_addsp
+			add	address, sp
+			rdlong	data, address
+			add	tos, data
+imp_addsp_ret
+			ret
 
 pat_store
                         call    #pop_tos
@@ -981,8 +985,6 @@ fill
 			mov    	t2, hubaddr		' save masked cache line
 			shl    	hubaddr, #(CACHE_LINE_BITS+3) ' need to multiply by 8 to convert to PASM instructions
 			add	hubaddr, l2data_addr
-			mov    	hubcnt, #CACHE_LINE_SIZE*8
-			mov    	cogaddr, #0
 			''
 			'' check for L2 hit
 			''
@@ -995,6 +997,8 @@ fill
     			'' OK, all we have to do here is to read the
 			'' data in
 fill_and_ret
+			mov    	hubcnt, #CACHE_LINE_SIZE*8
+			mov    	cogaddr, #0
 			call	#cogxfr_read
 fill_ret
 			ret
