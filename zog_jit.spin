@@ -540,7 +540,8 @@ pat_flip
 
 
 			'' this has to fit in the available cache space
-			fit	$100
+			'' fit $90 fails, fit $a0 is OK
+			fit	$a0
 			
 '------------------------------------------------------------------------------
 ' RUNTIME support code
@@ -1014,21 +1015,21 @@ fill_ret
 do_compile
 			wrlong	cur_cache_tag, t2	' update new cache tag
 			mov	ccopy_hubptr, hubaddr   ' have to set hubptr to dest here
+			
 			mov	t2, cur_cache_tag
 			add	t2, zpu_memory_addr
 			mov	t1, #CACHE_LINE_SIZE
 			
 			'' initialize im_flag for correct state, based
 			'' on the previous byte
-			'' if we arrived here by falling through
-			'' then the high bit of im_flag is set and we
-			'' should keep it
+
+			mov	im_flag, #emit_first_im
+
 			mov	last_im_valid, #0
 			mov	memp, t2
 			sub	memp, #1
 			xor	memp, #%11		'XOR for endianness
 			rdbyte	opcode, memp
-			mov	im_flag, #emit_first_im
 			test	opcode, #$80 wz
     if_nz		mov	im_flag, #emit_later_im
 
