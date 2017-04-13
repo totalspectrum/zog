@@ -541,9 +541,9 @@ enter
 icache0
                         jmp     #init
 '------------------------------------------------------------------------------
-			long	0[L1_CACHE_LONGS-1]
-
-die			jmp	#die
+			long	0[CACHE_LINE_LONGS-1]
+icache1
+			long	0[CACHE_LINE_LONGS]
 
 			'' each cache way should take up 4 longs
 icache0_tag		long	1
@@ -556,7 +556,7 @@ icache1_tag		long	1
 icache1_divert
 			nop
 			mov	cur_pc, icache1_tag
-			jmp	#divert
+''			jmp	#divert
 divert
 			add	cur_pc, #CACHE_LINE_SIZE
 			jmp	#set_pc
@@ -717,6 +717,7 @@ dummy
 get_next_pc
 			mov	cur_pc, intern_pc
 			add	cur_pc, #1		' 2 COG instructions per ZPU one, so round up
+			sub	cur_pc, #icache1
 			shr	cur_pc, #1		' convert to number of instructions
 			add	cur_pc, cur_cache_tag
 get_next_pc_ret
@@ -743,10 +744,11 @@ set_pc
 			mov	intern_pc, cur_pc
 			and	intern_pc, #CACHE_LINE_MASK
 			shl	intern_pc, #1		'' 2 COG instrs per ZPU one
+			add	intern_pc, #icache1
 			andn	cur_pc, #CACHE_LINE_MASK
-
+			
 			'' get pointer to cache line
-			mov	cur_cache_ptr, #icache0_tag
+			mov	cur_cache_ptr, #icache1_tag
 			movs	cogindirect, #cur_cache_tag
 			movd	cogindirect, cur_cache_ptr
 			call	#cogindirect
@@ -1027,21 +1029,22 @@ fill
 			'' data in
 fill_and_ret
 			mov    	hubcnt, cog_cache_line_bytes
-			mov    	cogaddr, #0
+			mov    	cogaddr, #icache1
 			call	#cogxfr_read
 
 			'' set up the correct cache tag
-			mov	icache0_tag, cur_cache_tag
+			mov	icache1_tag, cur_cache_tag
 			
 			'' move the last instruction of the cache line into the divert area
 			'' and replace it with a jump to divert
 			mov	cogaddr, #CACHE_LINE_LONGS-1
+			add	cogaddr, #icache1
 			movs	fillmov1, cogaddr
-			movd	fillmov1, #icache0_divert
+			movd	fillmov1, #icache1_divert
 			movd	fillmov2, cogaddr
-			movs	jmpinstr, #icache0_divert
+			movs	jmpinstr, #icache1_divert
 			
-fillmov1		mov	0-0, 0-0	' move to icache0_divert
+fillmov1		mov	0-0, 0-0	' move to icache_divert
 fillmov2		mov	0-0, jmpinstr	' replace jump instruction
 fill_ret
 			ret
