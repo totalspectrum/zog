@@ -527,6 +527,9 @@ pat_call
 			nop
 
 
+last_im_valid		long	0
+last_im			long	0
+
 			fit L1_CACHE_LONGS
 overlay_size
 
@@ -746,8 +749,13 @@ set_pc
 			andn	cur_pc, #CACHE_LINE_MASK
 			
 			'' get pointer to cache line
-			mov	cur_cache_ptr, #icache1_tag
-			mov	cur_cache_base, #icache1
+			test   cur_pc, #CACHE_LINE_SIZE wz
+	if_z		mov	cur_cache_ptr, #icache0_tag
+	if_z		mov	cur_cache_base, #icache0
+	if_z		mov	cur_cache_tag, icache0_tag
+	if_nz		mov	cur_cache_ptr, #icache1_tag
+	if_nz		mov	cur_cache_base, #icache1
+	if_nz		mov	cur_cache_tag, icache1_tag
 
 			add	intern_pc, cur_cache_base
 			'' is the desired line already in cache?
@@ -755,12 +763,13 @@ set_pc
     	if_z		jmp	#cache_full
 			mov	cur_cache_tag, cur_pc
 
-			'' update internal cache
   			call	#fill		
+			'' update internal cache
 			'' set icache1_tag to be cur_cache_tag
 			movd	cogindirect, cur_cache_ptr
 			movs	cogindirect, #cur_cache_tag
 			call	#cogindirect
+
 cache_full
 			jmp	intern_pc
 
@@ -1102,9 +1111,6 @@ transi
 			shl	aux_opcode, #2			' convert to byte address
 			add	aux_opcode, dispatch_tab_addr
 			rdlong	aux_opcode, aux_opcode
-#ifdef SINGLE_STEP_NEVER
-			mov	dbg_data, aux_opcode
-#endif
                         jmp     aux_opcode                    'Jump through dispatch table for other ops
 nexti
 			djnz	t1, #transi
@@ -1181,8 +1187,8 @@ debug_addr              mov     debug_addr, temp 	'HUB address of debug register
 
 l2tags_addr		mov	cur_pc, #0  	     	' address of L2 tags
 l2data_addr		mov	l2tags_addr, dispatch_tab_addr
-last_im			add	l2tags_addr, #$40*4
-last_im_valid		mov	l2data_addr, l2tags_addr
+intern_pc		add	l2tags_addr, #$40*4
+overlay_addr		mov	l2data_addr, l2tags_addr
 cur_cache_tag		add	l2data_addr, #L2_CACHE_LINES*4
 cogaddr			mov	overlay_addr, #L2_CACHE_LINES
 hubcnt			shl	overlay_addr, #CACHE_LINE_BITS+3
@@ -1190,8 +1196,6 @@ hubaddr			add	overlay_addr,l2data_addr
 aux_opcode		jmp	#set_pc
 
 im_flag			long	emit_first_im    ' selects pattern for IM
-intern_pc		long	0
-overlay_addr		long	0
 cur_cache_base		long	0
 
 '------------------------------------------------------------------------------
