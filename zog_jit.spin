@@ -93,8 +93,8 @@ CON
 ' instruction maps to two PASM instructions)
 '
 
-CACHE_LINE_BITS = 3
-'CACHE_LINE_BITS = 4 ' a good default
+'CACHE_LINE_BITS = 3
+CACHE_LINE_BITS = 4 ' a good default
 'CACHE_LINE_BITS = 5
 'CACHE_LINE_BITS = 6
 CACHE_LINE_SIZE = (1<<CACHE_LINE_BITS)
@@ -262,45 +262,18 @@ l2data
 '------------------------------------------------------------------------------
 			org 0
 overlay_start
+'------------------------------------------------------------------------------
+' COMPILATION ROUTINES
+' we place all the compilation routines here in the overlay
+' things needed at run time should go later
+'------------------------------------------------------------------------------
+
+
 '' just compile the 2 instructions pointed to by the dest field
 emit_literal2
 			shr	aux_opcode, #9	' extract dest field
 			movd	ccopy, aux_opcode
 			jmp	#ccopy_next
-
-			nop
-			nop
-			nop
-			nop
-
-			fit L1_CACHE_LONGS
-overlay_size
-
-'------------------------------------------------------------------------------
-' actual COG code starts below
-'------------------------------------------------------------------------------
-
-			org     0
-enter
-icache0
-                        jmp     #init
-'------------------------------------------------------------------------------
-			long	0[L1_CACHE_LONGS-1]
-
-die			jmp	#die
-
-icache0_divert
-			nop		' replaced by last instruction of cache line
-			mov	cur_pc, cur_cache_tag
-			add	cur_pc, #CACHE_LINE_SIZE
-			jmp	#set_pc
-
-			
-'------------------------------------------------------------------------------
-' COMPILATION ROUTINES
-' we place all the compilation routines here, together
-' things needed at run time should go later
-'------------------------------------------------------------------------------
 
 ''
 '' helper function for compilation
@@ -347,6 +320,29 @@ pat_nop
 			nop	     		' used if we skip the pop_tos
 			nop			' also used if we skip the pop_tos			
 
+			fit L1_CACHE_LONGS
+overlay_size
+
+'------------------------------------------------------------------------------
+' actual COG code starts below
+'------------------------------------------------------------------------------
+
+			org     0
+enter
+icache0
+                        jmp     #init
+'------------------------------------------------------------------------------
+			long	0[L1_CACHE_LONGS-1]
+
+die			jmp	#die
+
+icache0_divert
+			nop		' replaced by last instruction of cache line
+			mov	cur_pc, cur_cache_tag
+			add	cur_pc, #CACHE_LINE_SIZE
+			jmp	#set_pc
+
+			
 emit_addsp
 			and	address, #$0F
             		shl	address, #2
