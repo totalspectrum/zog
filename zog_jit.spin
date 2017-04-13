@@ -100,7 +100,8 @@ CACHE_LINE_BITS = 4 ' a good default
 CACHE_LINE_SIZE = (1<<CACHE_LINE_BITS)
 CACHE_LINE_MASK = (CACHE_LINE_SIZE-1)
 
-L1_CACHE_LONGS = (2*CACHE_LINE_SIZE)
+CACHE_LINE_LONGS = (2*CACHE_LINE_SIZE)
+L1_CACHE_LONGS = (4*CACHE_LINE_LONGS)
 
 L2_CACHE_BITS  = (8-CACHE_LINE_BITS)
 L2_CACHE_LINES = (1<<L2_CACHE_BITS)  ' number of lines in the L2 cache
@@ -258,7 +259,7 @@ l2data
 
 
 '------------------------------------------------------------------------------
-' Overlay goes here
+' OVERLAY goes here
 '------------------------------------------------------------------------------
 			org 0
 overlay_start
@@ -320,29 +321,6 @@ pat_nop
 			nop	     		' used if we skip the pop_tos
 			nop			' also used if we skip the pop_tos			
 
-			fit L1_CACHE_LONGS
-overlay_size
-
-'------------------------------------------------------------------------------
-' actual COG code starts below
-'------------------------------------------------------------------------------
-
-			org     0
-enter
-icache0
-                        jmp     #init
-'------------------------------------------------------------------------------
-			long	0[L1_CACHE_LONGS-1]
-
-die			jmp	#die
-
-icache0_divert
-			nop		' replaced by last instruction of cache line
-			mov	cur_pc, cur_cache_tag
-			add	cur_pc, #CACHE_LINE_SIZE
-			jmp	#set_pc
-
-			
 emit_addsp
 			and	address, #$0F
             		shl	address, #2
@@ -441,10 +419,9 @@ pat_compare
 
 pat_config
 			mov	cpu, tos
-			call	#pop_tos
-
+''			call	#pop_tos '' NOTE: SHARES first instr of next pattern
 pat_mult
-                        call    #pop_tos
+                        call    #pop_tos  '' NOTED: shared with pattern above, do not separate
 			call	#imp_mult
 pat_mult16x16
                         call    #pop_tos
@@ -548,11 +525,36 @@ pat_flip
                         rev     tos, #32
 			nop
 
-
 pat_call
 			jmpret	intern_pc, #imp_call	'' set intern_pc for get_next_pc
 			nop
 
+
+			fit L1_CACHE_LONGS
+overlay_size
+
+''' END OF OVERLAY
+
+'------------------------------------------------------------------------------
+' actual COG code starts below
+'------------------------------------------------------------------------------
+
+			org     0
+enter
+icache0
+                        jmp     #init
+'------------------------------------------------------------------------------
+			long	0[L1_CACHE_LONGS-1]
+
+die			jmp	#die
+
+icache0_divert
+			nop		' replaced by last instruction of cache line
+			mov	cur_pc, cur_cache_tag
+			add	cur_pc, #CACHE_LINE_SIZE
+			jmp	#set_pc
+
+			
 '------------------------------------------------------------------------------
 ' RUNTIME support code
 '------------------------------------------------------------------------------
@@ -1035,7 +1037,8 @@ do_compile
 			'' load overlay
 			mov	save_hubaddr, hubaddr
 			mov	hubaddr, overlay_addr
-			mov	hubcnt, #overlay_size*4
+			mov	hubcnt, #overlay_size
+			shl	hubcnt, #2		' multiply by 4 to get longs
 			mov	cogaddr, #0
 			call	#cogxfr_read
 
