@@ -891,16 +891,13 @@ imp_mult16x16_ret
 {{==    NOTE: Caller must not allow data == 0!!!!       ==}}
 imp_div
 			call	#pop_tos
-			mov	t1, tos
-			mov	tos, data
-			mov	data, t1
 			
-fast_div                ' tos = tos / data
+fast_div                ' tos = data / tos
                         ' handle the signs, and check for a 0 divisor
                         and     div_flags, #1   wz      ' keep only the 0 bit, and remember if it's a 0
-                        abs     t1, data        wc
+                        abs     t1, tos        wc
              if_z_and_c or      div_flags, #2           ' data was negative, and we're looking for quotient, so set bit 1 hi
-                        abs     data, tos       wc
+                        abs     data, data       wc
               if_c      xor     div_flags, #2           ' tos was negative, invert bit 1 (quotient or remainder)
                         ' align the divisor to the leftmost bit
                         neg     t2, #1          wc      ' count how many times we shift (negative)
