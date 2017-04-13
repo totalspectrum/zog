@@ -550,11 +550,18 @@ die			jmp	#die
 
 icache0_divert
 			nop		' replaced by last instruction of cache line
+			jmp	#divert
+icache1_divert
+			nop
+			jmp	#divert
+divert
 			mov	cur_pc, cur_cache_tag
 			add	cur_pc, #CACHE_LINE_SIZE
 			jmp	#set_pc
 
-			
+icache0_tag		long	1
+icache1_tag		long	1
+
 '------------------------------------------------------------------------------
 ' RUNTIME support code
 '------------------------------------------------------------------------------
@@ -867,20 +874,9 @@ imp_mult16x16
 			and	data, word_mask
 			and	tos, word_mask
 imp_mult
-#ifdef USE_FASTER_MULT
-                        abs     tos, tos        wc
-                        negc    data, data
-                        abs     data, data      wc
-                        ' make t2 the smaller of the 2 unsigned parameters
-                        mov     t2, tos
-                        max     t2, data
-                        min     data, tos
-                        ' corrct the sign of the adder
-                        negc    data, data
-#else
                         abs     t2, tos         wc
                         negc    data, data
-#endif
+
                         ' my accumulator
                         mov     tos, #0
                         ' do the work
@@ -1092,7 +1088,8 @@ nexti
 			djnz	t1, #transi
 
 			'' restore hubaddr
-			mov	hubaddr, save_hubaddr
+			mov	hubaddr, ccopy_hubptr
+			sub	hubaddr, #CACHE_LINE_LONGS*4
 			jmp	#fill_and_ret
 
 '------------------------------------------------------------------------------
