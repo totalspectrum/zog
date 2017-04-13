@@ -545,19 +545,18 @@ icache0
 icache1
 			long	0[CACHE_LINE_LONGS]
 
-			'' each cache way should take up 4 longs
+
 icache0_tag		long	1
 icache0_divert
 			nop		' replaced by last instruction of cache line
-			mov	cur_pc, icache0_tag
 			jmp	#divert
 
 icache1_tag		long	1
 icache1_divert
 			nop
-			mov	cur_pc, icache1_tag
 ''			jmp	#divert
 divert
+			mov	cur_pc, cur_cache_tag
 			add	cur_pc, #CACHE_LINE_SIZE
 			jmp	#set_pc
 
@@ -717,7 +716,7 @@ dummy
 get_next_pc
 			mov	cur_pc, intern_pc
 			add	cur_pc, #1		' 2 COG instructions per ZPU one, so round up
-			sub	cur_pc, #icache1
+			sub	cur_pc, cur_cache_base
 			shr	cur_pc, #1		' convert to number of instructions
 			add	cur_pc, cur_cache_tag
 get_next_pc_ret
@@ -744,15 +743,16 @@ set_pc
 			mov	intern_pc, cur_pc
 			and	intern_pc, #CACHE_LINE_MASK
 			shl	intern_pc, #1		'' 2 COG instrs per ZPU one
-			add	intern_pc, #icache1
 			andn	cur_pc, #CACHE_LINE_MASK
 			
 			'' get pointer to cache line
 			mov	cur_cache_ptr, #icache1_tag
+			mov	cur_cache_base, #icache1
 			movs	cogindirect, #cur_cache_tag
 			movd	cogindirect, cur_cache_ptr
 			call	#cogindirect
 			
+			add	intern_pc, cur_cache_base
 			'' is the desired line already in cache?
 			cmp	cur_cache_tag, cur_pc wz
     	if_z		jmp	#cache_full
@@ -1029,17 +1029,18 @@ fill
 			'' data in
 fill_and_ret
 			mov    	hubcnt, #CACHE_LINE_LONGS*4
-			mov    	cogaddr, #icache1
+			mov    	cogaddr, cur_cache_base
 			movs	:updcogaddr, cogaddr
+			movd	:updtag, cur_cache_ptr
 			call	#cogxfr_read
 
 			'' set up the correct cache tag
-			mov	icache1_tag, cur_cache_tag
+:updtag			mov	0-0, cur_cache_tag
 			
 			'' move the last instruction of the cache line into the divert area
 			'' and replace it with a jump to divert
 			mov	cogaddr, #CACHE_LINE_LONGS-1
-:updcogaddr		add	cogaddr, #0-0 'icache1
+:updcogaddr		add	cogaddr, #0-0			' icache1
 			movs	fillmov1, cogaddr
 			movd	fillmov1, #icache1_divert
 			movd	fillmov2, cogaddr
@@ -1169,10 +1170,12 @@ t2                      add     temp, #4             'Maths var.
 sp_addr                 mov     sp_addr, temp        'HUB address of SP
 coginit_dest            add     temp, #4             'Used for coginit instruction.
 tos_addr                mov     tos_addr, temp       'HUB address of tos
+#ifdef NEVER
 overlay_addr            add     temp, #4
-''dm_addr                 mov     dm_addr, temp         'HUB address of decode mask (not used)
+dm_addr                 mov     dm_addr, temp         'HUB address of decode mask (not used)
 intern_pc               add     temp, #4   	      	' COG internal PC address
 debug_addr              mov     debug_addr, temp 	'HUB address of debug register
+#endif
 
 l2tags_addr		mov	cur_pc, #0  	     	' address of L2 tags
 l2data_addr		mov	l2tags_addr, dispatch_tab_addr
@@ -1185,6 +1188,10 @@ hubaddr			add	overlay_addr,l2data_addr
 aux_opcode		jmp	#set_pc
 
 im_flag			long	emit_first_im    ' selects pattern for IM
+intern_pc		long	0
+overlay_addr		long	0
+cur_cache_base		long	0
+
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
