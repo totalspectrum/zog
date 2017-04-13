@@ -100,6 +100,8 @@ CACHE_LINE_BITS = 3
 CACHE_LINE_SIZE = (1<<CACHE_LINE_BITS)
 CACHE_LINE_MASK = (CACHE_LINE_SIZE-1)
 
+L1_CACHE_LONGS = (2*CACHE_LINE_SIZE)
+
 L2_CACHE_BITS  = (8-CACHE_LINE_BITS)
 L2_CACHE_LINES = (1<<L2_CACHE_BITS)  ' number of lines in the L2 cache
 L2_CACHE_MASK = (L2_CACHE_LINES-1)
@@ -260,10 +262,18 @@ l2data
 '------------------------------------------------------------------------------
 			org 0
 overlay_start
+'' just compile the 2 instructions pointed to by the dest field
+emit_literal2
+			shr	aux_opcode, #9	' extract dest field
+			movd	ccopy, aux_opcode
+			jmp	#ccopy_next
+
 			nop
 			nop
 			nop
 			nop
+
+			fit L1_CACHE_LONGS
 overlay_size
 
 '------------------------------------------------------------------------------
@@ -275,7 +285,7 @@ enter
 icache0
                         jmp     #init
 '------------------------------------------------------------------------------
-			long	0[2*CACHE_LINE_SIZE-1]
+			long	0[L1_CACHE_LONGS-1]
 
 die			jmp	#die
 
@@ -291,12 +301,6 @@ icache0_divert
 ' we place all the compilation routines here, together
 ' things needed at run time should go later
 '------------------------------------------------------------------------------
-
-'' just compile the 2 instructions pointed to by the dest field
-emit_literal2
-			shr	aux_opcode, #9	' extract dest field
-			movd	ccopy, aux_opcode
-			jmp	#ccopy_next
 
 ''
 '' helper function for compilation
