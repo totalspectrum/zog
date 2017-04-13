@@ -94,14 +94,14 @@ CON
 '
 
 'CACHE_LINE_BITS = 3
-CACHE_LINE_BITS = 4 ' a good default
-'CACHE_LINE_BITS = 5
+'CACHE_LINE_BITS = 4 ' a good default
+CACHE_LINE_BITS = 5
 'CACHE_LINE_BITS = 6
 CACHE_LINE_SIZE = (1<<CACHE_LINE_BITS)
 CACHE_LINE_MASK = (CACHE_LINE_SIZE-1)
 
 CACHE_LINE_LONGS = (2*CACHE_LINE_SIZE)
-L1_CACHE_LONGS = (4*CACHE_LINE_LONGS)
+L1_CACHE_LONGS = ((7-CACHE_LINE_BITS)*CACHE_LINE_LONGS)
 
 L2_CACHE_BITS  = (8-CACHE_LINE_BITS)
 L2_CACHE_LINES = (1<<L2_CACHE_BITS)  ' number of lines in the L2 cache
@@ -545,19 +545,22 @@ icache0
 
 die			jmp	#die
 
+			'' each cache way should take up 4 longs
+icache0_tag		long	1
 icache0_divert
 			nop		' replaced by last instruction of cache line
+			mov	cur_pc, icache0_tag
 			jmp	#divert
+
+icache1_tag		long	1
 icache1_divert
 			nop
+			mov	cur_pc, icache1_tag
 			jmp	#divert
 divert
-			mov	cur_pc, cur_cache_tag
 			add	cur_pc, #CACHE_LINE_SIZE
 			jmp	#set_pc
 
-icache0_tag		long	1
-icache1_tag		long	1
 
 '------------------------------------------------------------------------------
 ' RUNTIME support code
@@ -1005,13 +1008,16 @@ fill
     			'' OK, all we have to do here is to read the
 			'' data in
 fill_and_ret
-			mov    	hubcnt, #CACHE_LINE_SIZE*8
+			mov    	hubcnt, cog_cache_line_bytes
 			mov    	cogaddr, #0
 			call	#cogxfr_read
 
+			'' set up the correct cache tag
+			mov	icache0_tag, cur_cache_tag
+			
 			'' move the last instruction of the cache line into the divert area
 			'' and replace it with a jump to divert
-			mov	cogaddr, #CACHE_LINE_SIZE*2-1
+			mov	cogaddr, #CACHE_LINE_LONGS-1
 			movs	fillmov1, cogaddr
 			movd	fillmov1, #icache0_divert
 			movd	fillmov2, cogaddr
@@ -1080,7 +1086,7 @@ nexti
 
 			'' restore hubaddr
 			mov	hubaddr, ccopy_hubptr
-			sub	hubaddr, #CACHE_LINE_LONGS*4
+			sub	hubaddr, cog_cache_line_bytes
 			jmp	#fill_and_ret
 
 '------------------------------------------------------------------------------
@@ -1171,6 +1177,8 @@ zpu_hub_start           long $10000000  'Start of HUB access window in ZPU memor
 zpu_cog_start           long $10008000  'Start of COG access window in ZPU memory space
 zpu_io_start            long $10008800  'Start of IO access window
 
+
+cog_cache_line_bytes	long CACHE_LINE_LONGS*4
 
 '------------------------------------------------------------------------------
                         fit     $1e4  ' $1e4 works, $1F0 is whole thing
