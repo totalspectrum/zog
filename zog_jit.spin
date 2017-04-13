@@ -748,8 +748,10 @@ set_pc
 			'' get pointer to cache line
 			mov	cur_cache_ptr, #icache1_tag
 			mov	cur_cache_base, #icache1
-			movs	cogindirect, #cur_cache_tag
+
+			'' set icache1_tag to be cur_cache_tag
 			movd	cogindirect, cur_cache_ptr
+			movs	cogindirect, #cur_cache_tag
 			call	#cogindirect
 			
 			add	intern_pc, cur_cache_base
@@ -759,10 +761,6 @@ set_pc
 			mov	cur_cache_tag, cur_pc
 
 			'' update internal cache
-			movd	cogindirect, cur_cache_ptr
-			movs	cogindirect, #cur_cache_tag
-			call	#cogindirect
-			
   			call	#fill		
 
 cache_full
@@ -1042,9 +1040,11 @@ fill_and_ret
 			mov	cogaddr, #CACHE_LINE_LONGS-1
 :updcogaddr		add	cogaddr, #0-0			' icache1
 			movs	fillmov1, cogaddr
-			movd	fillmov1, #icache1_divert
+			add	cur_cache_ptr, #1
+			movd	fillmov1, cur_cache_ptr
 			movd	fillmov2, cogaddr
-			movs	jmpinstr, #icache1_divert
+			movs	jmpinstr, cur_cache_ptr
+			sub	cur_cache_ptr, #1
 			
 fillmov1		mov	0-0, 0-0	' move to icache_divert
 fillmov2		mov	0-0, jmpinstr	' replace jump instruction
