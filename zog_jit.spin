@@ -254,6 +254,18 @@ l2tags
 l2data
 			long 0[L2_CACHE_SIZE*2]
 
+
+'------------------------------------------------------------------------------
+' Overlay goes here
+'------------------------------------------------------------------------------
+			org 0
+overlay_start
+			nop
+			nop
+			nop
+			nop
+overlay_size
+
 '------------------------------------------------------------------------------
 ' actual COG code starts below
 '------------------------------------------------------------------------------
@@ -541,10 +553,6 @@ pat_call
 			jmpret	intern_pc, #imp_call	'' set intern_pc for get_next_pc
 			nop
 
-			'' this has to fit in the available cache space
-			'' fit $90 fails, fit $a0 is OK
-			fit	$a0
-			
 '------------------------------------------------------------------------------
 ' RUNTIME support code
 '------------------------------------------------------------------------------
@@ -745,7 +753,9 @@ push_tos
 
                         wrlong  tos, sp
                         sub     sp, #4
-push_tos_ret            ret
+push_tos_ret
+jmpinstr
+			ret	' also used as a prototypical jmp instruction
 
 'Pop a LONG from the stack into "tos", leave flags alone
 'old tos gets placed in "data"
@@ -925,7 +935,6 @@ imp_div_ret            ret
 ' Note that the number of longs must be a multiple of 2
 '------------------------------------------------------------------------------
 cogaddr		long 0
-hubaddr		long 0
 hubcnt		long 0
 
 ' NOTE: the instructions at lbuf0 and lbuf1 can be destroyed if
@@ -933,12 +942,13 @@ hubcnt		long 0
 ' refresh them each time
 ' we have to set up for read/write anyway, so this isn't too big
 ' a deal
-rdins	   	rdlong	0-0, hubaddr
 wrins		wrlong	0-0, hubaddr
 
 cogxfr_write
 		mov	lbuf0, wrins
 		jmp	#doxfer
+		
+rdins	   	rdlong	0-0, hubaddr
 cogxfr_read
   		mov	lbuf0, rdins
 doxfer
@@ -1012,22 +1022,27 @@ fill_and_ret
 			movs	fillmov1, cogaddr
 			movd	fillmov1, #icache0_divert
 			movd	fillmov2, cogaddr
-			movs	jmpinst, #icache0_divert
+			movs	jmpinstr, #icache0_divert
 			
 fillmov1		mov	0-0, 0-0	' move to icache0_divert
-fillmov2		mov	0-0, jmpinst	' replace jump instruction
+fillmov2		mov	0-0, jmpinstr	' replace jump instruction
 fill_ret
 			ret
-jmpinst			jmp	#0
-
+			
 do_compile
 			wrlong	cur_cache_tag, t2	' update new cache tag
 			mov	ccopy_hubptr, hubaddr   ' have to set hubptr to dest here
-			
+			'' load overlay
+			mov	save_hubaddr, hubaddr
+			mov	hubaddr, overlay_addr
+			mov	hubcnt, #overlay_size*4
+			mov	cogaddr, #0
+			call	#cogxfr_read
+
 			mov	t2, cur_cache_tag
 			add	t2, zpu_memory_addr
 			mov	t1, #CACHE_LINE_SIZE
-			
+
 			'' initialize im_flag for correct state, based
 			'' on the previous byte
 
@@ -1051,7 +1066,7 @@ transi
                         call    #break_ss
 #endif
 			add	t2, #1
-			' build the instruction into icache here
+			' build the instruction into L2 cache here
 
                         test    opcode, #$80 wz          'Check for IM instruction
               if_nz     jmp     im_flag	     ' compile whichver IM instruction variant we need
@@ -1073,6 +1088,8 @@ transi
 nexti
 			djnz	t1, #transi
 
+			'' restore hubaddr
+			mov	hubaddr, save_hubaddr
 			jmp	#fill_and_ret
 
 '------------------------------------------------------------------------------
@@ -1138,7 +1155,7 @@ t2                      add     temp, #4             'Maths var.
 sp_addr                 mov     sp_addr, temp        'HUB address of SP
 coginit_dest            add     temp, #4             'Used for coginit instruction.
 tos_addr                mov     tos_addr, temp       'HUB address of tos
-a                       add     temp, #4
+overlay_addr            add     temp, #4
 dm_addr                 mov     dm_addr, temp        'HUB address of decode mask
 dbg_data                add     temp, #4
 debug_addr              mov     debug_addr, temp     'HUB address of debug register
@@ -1148,6 +1165,9 @@ l2data_addr		mov	l2tags_addr, dispatch_tab_addr
 last_im			add	l2tags_addr, #$40*4
 last_im_valid		mov	l2data_addr, l2tags_addr
 cur_cache_tag		add	l2data_addr, #L2_CACHE_LINES*4
+a			mov	overlay_addr, #L2_CACHE_LINES
+save_hubaddr		shl	overlay_addr, #CACHE_LINE_BITS+3
+hubaddr			add	overlay_addr,l2data_addr
 aux_opcode		jmp	#set_pc
 
 im_flag			long	emit_first_im    ' selects pattern for IM
