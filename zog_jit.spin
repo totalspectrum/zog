@@ -546,12 +546,12 @@ icache1
 			long	0[CACHE_LINE_LONGS]
 
 
-icache0_tag		long	1
+icache0_tag		long	$EEEEEEEE
 icache0_divert
 			nop		' replaced by last instruction of cache line
 			jmp	#divert
 
-icache1_tag		long	1
+icache1_tag		long	$EEEEEEEE
 icache1_divert
 			nop
 ''			jmp	#divert
@@ -749,11 +749,6 @@ set_pc
 			mov	cur_cache_ptr, #icache1_tag
 			mov	cur_cache_base, #icache1
 
-			'' set icache1_tag to be cur_cache_tag
-			movd	cogindirect, cur_cache_ptr
-			movs	cogindirect, #cur_cache_tag
-			call	#cogindirect
-			
 			add	intern_pc, cur_cache_base
 			'' is the desired line already in cache?
 			cmp	cur_cache_tag, cur_pc wz
@@ -762,11 +757,15 @@ set_pc
 
 			'' update internal cache
   			call	#fill		
-
+			'' set icache1_tag to be cur_cache_tag
+			movd	cogindirect, cur_cache_ptr
+			movs	cogindirect, #cur_cache_tag
+			call	#cogindirect
 cache_full
 			jmp	intern_pc
 
 cur_cache_ptr		long	0
+
 cogindirect
 			mov	0-0, 0-0
 cogindirect_ret
@@ -1055,6 +1054,9 @@ do_compile
 			wrlong	cur_cache_tag, t2	' update new cache tag
 			mov	ccopy_hubptr, hubaddr   ' have to set hubptr to dest here
 			'' load overlay
+			'' invalidate internal cache tags
+			mov	icache0_tag, #1
+			mov	icache1_tag, #1
 			mov	hubaddr, overlay_addr
 			mov	hubcnt, #overlay_size
 			shl	hubcnt, #2		' multiply by 4 to get longs
@@ -1208,7 +1210,7 @@ zpu_io_start            long $10008800  'Start of IO access window
 
 
 '------------------------------------------------------------------------------
-                        fit     $1ec  ' $1ee works, $1F0 is whole thing
+                        fit     $1f0  ' $1ee works, $1F0 is whole thing
 
 '---------------------------------------------------------------------------------------------------------
 'The End.
