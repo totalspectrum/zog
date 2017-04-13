@@ -745,15 +745,32 @@ set_pc
 			shl	intern_pc, #1		'' 2 COG instrs per ZPU one
 			andn	cur_pc, #CACHE_LINE_MASK
 
+			'' get pointer to cache line
+			mov	cur_cache_ptr, #icache0_tag
+			movs	cogindirect, #cur_cache_tag
+			movd	cogindirect, cur_cache_ptr
+			call	#cogindirect
+			
 			'' is the desired line already in cache?
 			cmp	cur_cache_tag, cur_pc wz
     	if_z		jmp	#cache_full
 			mov	cur_cache_tag, cur_pc
+
+			'' update internal cache
+			movd	cogindirect, cur_cache_ptr
+			movs	cogindirect, #cur_cache_tag
+			call	#cogindirect
+			
   			call	#fill		
 
 cache_full
 			jmp	intern_pc
-			
+
+cur_cache_ptr		long	0
+cogindirect
+			mov	0-0, 0-0
+cogindirect_ret
+			ret
 '------------------------------------------------------------------------------
 'ZPU memory space access routines
 
@@ -938,12 +955,13 @@ imp_div_ret            ret
 ' refresh them each time
 ' we have to set up for read/write anyway, so this isn't too big
 ' a deal
+{{
 wrins		wrlong	0-0, hubaddr
 
 cogxfr_write
 		mov	lbuf0, wrins
 		jmp	#doxfer
-		
+}}		
 rdins	   	rdlong	0-0, hubaddr
 cogxfr_read
   		mov	lbuf0, rdins
@@ -1181,7 +1199,7 @@ zpu_io_start            long $10008800  'Start of IO access window
 cog_cache_line_bytes	long CACHE_LINE_LONGS*4
 
 '------------------------------------------------------------------------------
-                        fit     $1e4  ' $1e4 works, $1F0 is whole thing
+                        fit     $1ee  ' $1ee works, $1F0 is whole thing
 
 '---------------------------------------------------------------------------------------------------------
 'The End.
