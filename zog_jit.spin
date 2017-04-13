@@ -933,7 +933,6 @@ imp_div_ret            ret
 ' Note that the number of longs must be a multiple of 2
 '------------------------------------------------------------------------------
 cogaddr		long 0
-hubcnt		long 0
 
 ' NOTE: the instructions at lbuf0 and lbuf1 can be destroyed if
 ' we count down below 0 (where the cache starts) so we have to
@@ -1031,7 +1030,6 @@ do_compile
 			wrlong	cur_cache_tag, t2	' update new cache tag
 			mov	ccopy_hubptr, hubaddr   ' have to set hubptr to dest here
 			'' load overlay
-			mov	save_hubaddr, hubaddr
 			mov	hubaddr, overlay_addr
 			mov	hubcnt, #overlay_size
 			shl	hubcnt, #2		' multiply by 4 to get longs
@@ -1166,7 +1164,7 @@ last_im			add	l2tags_addr, #$40*4
 last_im_valid		mov	l2data_addr, l2tags_addr
 cur_cache_tag		add	l2data_addr, #L2_CACHE_LINES*4
 a			mov	overlay_addr, #L2_CACHE_LINES
-save_hubaddr		shl	overlay_addr, #CACHE_LINE_BITS+3
+hubcnt			shl	overlay_addr, #CACHE_LINE_BITS+3
 hubaddr			add	overlay_addr,l2data_addr
 aux_opcode		jmp	#set_pc
 
