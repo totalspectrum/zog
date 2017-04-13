@@ -932,7 +932,6 @@ imp_div_ret            ret
 ' Parallax forums, modified slightly for arbitrary buffers.
 ' Note that the number of longs must be a multiple of 2
 '------------------------------------------------------------------------------
-cogaddr		long 0
 
 ' NOTE: the instructions at lbuf0 and lbuf1 can be destroyed if
 ' we count down below 0 (where the cache starts) so we have to
@@ -1078,7 +1077,7 @@ transi
 			shl	aux_opcode, #2			' convert to byte address
 			add	aux_opcode, dispatch_tab_addr
 			rdlong	aux_opcode, aux_opcode
-#ifdef SINGLE_STEP
+#ifdef SINGLE_STEP_NEVER
 			mov	dbg_data, aux_opcode
 #endif
                         jmp     aux_opcode                    'Jump through dispatch table for other ops
@@ -1106,14 +1105,16 @@ break
 	if_nz  		sub	data, #1
 break_intern
                         wrlong  data, pc_addr             'Dump registers to HUB.
-			mov     a, sp
-			sub	a, zpu_memory_addr
-                        wrlong  a, sp_addr
+			mov     t1, sp
+			sub	t1, zpu_memory_addr
+                        wrlong  t1, sp_addr
 			wrlong	tos, tos_addr
+#ifdef NEVER
 			wrlong  dbg_data, debug_addr
-                        mov     a, #io_cmd_break     'Set I/O command to BREAK
-                        wrlong  a, io_command_addr
-:wait                   rdlong  a, io_command_addr wz
+#endif
+                        mov     t1, #io_cmd_break     'Set I/O command to BREAK
+                        wrlong  t1, io_command_addr
+:wait                   rdlong  t1, io_command_addr wz
               if_nz     jmp     #:wait
 break_ss_ret
 break_ret               ret
@@ -1138,7 +1139,7 @@ tos                     add     address, #4          'Top Of Stack
 dispatch_tab_addr       rdlong  dispatch_tab_addr, address'HUB address of instruction dispatch table
 data                    add     address, #4          'Data parameter for read, write etc
                       '  rdlong  pasm_addr, address
-cpu                     add     address, #4          'The CPU type given by the CONGIG op.
+cpu                     add     address, #4          'The CPU type given by the CONFIG op.
 
 ' div_flags was called a
 div_flags               rdlong  temp, address        '7th par item is address of ZOG I/O mailbox
@@ -1154,16 +1155,16 @@ sp_addr                 mov     sp_addr, temp        'HUB address of SP
 coginit_dest            add     temp, #4             'Used for coginit instruction.
 tos_addr                mov     tos_addr, temp       'HUB address of tos
 overlay_addr            add     temp, #4
-dm_addr                 mov     dm_addr, temp        'HUB address of decode mask
-dbg_data                add     temp, #4
-debug_addr              mov     debug_addr, temp     'HUB address of debug register
+''dm_addr                 mov     dm_addr, temp         'HUB address of decode mask (not used)
+intern_pc               add     temp, #4   	      	' COG internal PC address
+debug_addr              mov     debug_addr, temp 	'HUB address of debug register
 
-l2tags_addr		mov	cur_pc, #0  	     ' implementation data for translating current opcode byte
+l2tags_addr		mov	cur_pc, #0  	     	' address of L2 tags
 l2data_addr		mov	l2tags_addr, dispatch_tab_addr
 last_im			add	l2tags_addr, #$40*4
 last_im_valid		mov	l2data_addr, l2tags_addr
 cur_cache_tag		add	l2data_addr, #L2_CACHE_LINES*4
-a			mov	overlay_addr, #L2_CACHE_LINES
+cogaddr			mov	overlay_addr, #L2_CACHE_LINES
 hubcnt			shl	overlay_addr, #CACHE_LINE_BITS+3
 hubaddr			add	overlay_addr,l2data_addr
 aux_opcode		jmp	#set_pc
@@ -1184,12 +1185,8 @@ zpu_cog_start           long $10008000  'Start of COG access window in ZPU memor
 zpu_io_start            long $10008800  'Start of IO access window
 
 
-'' COG internal PC address
-intern_pc		long	0		' store return address here
-
-
 '------------------------------------------------------------------------------
-                        fit     $1f0  ' $1d0 works, $1F0 is whole thing
+                        fit     $1e0  ' $1e4 works, $1F0 is whole thing
 
 '---------------------------------------------------------------------------------------------------------
 'The End.
