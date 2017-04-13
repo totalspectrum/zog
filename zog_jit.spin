@@ -484,11 +484,8 @@ pat_later_im
 			or	tos, #0-0
 
 pat_breakpoint
-			jmpret	intern_pc, #dummy	'' break calls get_next_pc
-                        call    #break
-
 pat_illegal
-			call	#break
+			jmpret	intern_pc, #break	'' break calls get_next_pc
 			nop
 
 pat_pushsp
@@ -587,7 +584,7 @@ imp_condbranch
   			jmp	intern_pc	'' returns to pat_condbranch
 
 div_zero_error
-			call	#break
+			jmpret	intern_pc, #break  ' break calls get_next_pc
 			jmp	#div_zero_error
 
 imp_pushsp
@@ -1058,9 +1055,6 @@ transi
                         xor     memp, #%11               'XOR here is an endianess fix.
                         rdbyte  opcode, memp
                         mov     address, opcode
-#ifdef SINGLE_STEP
-                        call    #break_ss
-#endif
 			add	t2, #1
 			' build the instruction into L2 cache here
 
@@ -1092,13 +1086,6 @@ nexti
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
-#ifdef SINGLE_STEP
-break_ss
-			mov	data, t2
-			sub	data, zpu_memory_addr
-			jmp	#break_intern
-#endif
-
 break
 			call	#get_next_pc
 			mov     data, cur_pc wz
@@ -1117,7 +1104,7 @@ break_intern
 :wait                   rdlong  t1, io_command_addr wz
               if_nz     jmp     #:wait
 break_ss_ret
-break_ret               ret
+break_ret               jmp	intern_pc
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
