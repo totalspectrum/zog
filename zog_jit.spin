@@ -891,6 +891,9 @@ imp_mult16x16_ret
 {{==    NOTE: Caller must not allow data == 0!!!!       ==}}
 imp_div
 			call	#pop_tos
+			mov	t1, tos
+			mov	tos, data
+			mov	data, t1
 			
 fast_div                ' tos = tos / data
                         ' handle the signs, and check for a 0 divisor
@@ -1173,7 +1176,7 @@ zpu_io_start            long $10008800  'Start of IO access window
 
 
 '------------------------------------------------------------------------------
-                        fit     $1e0  ' $1e4 works, $1F0 is whole thing
+                        fit     $1e4  ' $1e4 works, $1F0 is whole thing
 
 '---------------------------------------------------------------------------------------------------------
 'The End.
