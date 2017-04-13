@@ -1028,8 +1028,9 @@ fill
     			'' OK, all we have to do here is to read the
 			'' data in
 fill_and_ret
-			mov    	hubcnt, cog_cache_line_bytes
+			mov    	hubcnt, #CACHE_LINE_LONGS*4
 			mov    	cogaddr, #icache1
+			movs	:updcogaddr, cogaddr
 			call	#cogxfr_read
 
 			'' set up the correct cache tag
@@ -1038,7 +1039,7 @@ fill_and_ret
 			'' move the last instruction of the cache line into the divert area
 			'' and replace it with a jump to divert
 			mov	cogaddr, #CACHE_LINE_LONGS-1
-			add	cogaddr, #icache1
+:updcogaddr		add	cogaddr, #0-0 'icache1
 			movs	fillmov1, cogaddr
 			movd	fillmov1, #icache1_divert
 			movd	fillmov2, cogaddr
@@ -1107,7 +1108,7 @@ nexti
 
 			'' restore hubaddr
 			mov	hubaddr, ccopy_hubptr
-			sub	hubaddr, cog_cache_line_bytes
+			sub	hubaddr, #CACHE_LINE_LONGS*4
 			jmp	#fill_and_ret
 
 '------------------------------------------------------------------------------
@@ -1199,10 +1200,8 @@ zpu_cog_start           long $10008000  'Start of COG access window in ZPU memor
 zpu_io_start            long $10008800  'Start of IO access window
 
 
-cog_cache_line_bytes	long CACHE_LINE_LONGS*4
-
 '------------------------------------------------------------------------------
-                        fit     $1ee  ' $1ee works, $1F0 is whole thing
+                        fit     $1ec  ' $1ee works, $1F0 is whole thing
 
 '---------------------------------------------------------------------------------------------------------
 'The End.
