@@ -628,19 +628,14 @@ imp_popsp_ret
 
 
 pat_loadh
-			xor	tos, #%10		' ENDIAN fix
-			call	#imp_loadh
-imp_loadh
 			add	tos, zpu_memory_addr
 			rdword	tos, tos
-imp_loadh_ret		ret
 
 pat_storeh
 			call	#pop_tos
 			call	#imp_storeh
 
 imp_storeh
-			xor	data, #%10		' ENDIAN fix
 			add	data, zpu_memory_addr
 			wrword	tos, data
 			call	#pop_tos
@@ -648,19 +643,14 @@ imp_storeh_ret		ret
 
 
 pat_loadb
-			xor	tos, #%11		' ENDIAN fix
-			call	#imp_loadb
-imp_loadb
 			add	tos, zpu_memory_addr
 			rdbyte	tos, tos
-imp_loadb_ret		ret
 
 pat_storeb
 			call	#pop_tos
 			call	#imp_storeb
 
 imp_storeb
-			xor	data, #%11		' ENDIAN fix
 			add	data, zpu_memory_addr
 			wrbyte	tos, data
 			call	#pop_tos
@@ -1084,7 +1074,6 @@ do_compile
 			mov	last_im_valid, #0
 			mov	memp, t2
 			sub	memp, #1
-			xor	memp, #%11		'XOR for endianness
 			rdbyte	opcode, memp
 			test	opcode, #$80 wz
     if_nz		mov	im_flag, #emit_later_im
@@ -1092,7 +1081,7 @@ do_compile
 transi
 			'' translate one instruction
                         mov     memp, t2
-                        xor     memp, #%11               'XOR here is an endianess fix.
+
                         rdbyte  opcode, memp
                         mov     address, opcode
 			add	t2, #1

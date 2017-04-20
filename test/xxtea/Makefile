@@ -39,7 +39,7 @@ LISTING=$(EXECUTABLE).lst
 
 # By default build an executeable, a raw binary RAM image and an assembler listing file 
 all: $(SOURCES) $(EXECUTABLE) $(BINARY) $(LISTING)
-	
+
 # Link the executable from object files
 $(EXECUTABLE): $(OBJECTS) 
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
@@ -48,7 +48,7 @@ $(EXECUTABLE): $(OBJECTS)
 # And reverse endianness.
 $(BINARY): $(EXECUTABLE)
 	$(OC) $(EXECUTABLE) $(BINARY)
-	objcopy -I binary -O binary --reverse-bytes=4  $(BINARY)
+#	objcopy -I binary -O binary --reverse-bytes=4  $(BINARY)
 
 # Create a listing file
 $(LISTING): $(EXECUTABLE)
@@ -61,4 +61,3 @@ $(LISTING): $(EXECUTABLE)
 # Clean up 
 clean:
 	rm -rf *.o *.lst *~ $(EXECUTABLE) $(BINARY) $(LISTING)
-	

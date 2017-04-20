@@ -147,8 +147,8 @@ DAT                     org 0
 zpu_memory              byte ' Force zpu_memory to be BYTE type.
 #ifdef USE_HUB_MEMORY
 'zpu_image               file "test.bin"
-zpu_image               file "fibo.bin"
-'zpu_image               file "xxtea.bin"
+'zpu_image               file "fibo.bin"
+zpu_image               file "xxtea.bin"
 'zpu_image               file "fftbench.bin"
 padding                 byte 0[(zpu_memory_size) - (@padding - @zpu_memory)]
 zpu_memory_end
@@ -225,8 +225,8 @@ UART_TX_PORT  = $80000024 'ZPU virtual UART I/O ports
 UART_RX_PORT  = $80000028
 
 OBJ
-  zog  : "zog"
-'  zog  : "zog_jit"
+'  zog  : "zog"
+  zog  : "zog_jit"
   ser  : "FullDuplexSerialPlus"
 #ifdef USE_JCACHED_MEMORY
   sd   : "fsrwFemto_rr001"                          'SD Software used in FemtoBASIC

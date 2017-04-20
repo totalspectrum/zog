@@ -129,6 +129,8 @@
 '                          implementations for different offset field values. Lonesock.
 '                      zpu_addsp_0 special case added. Lonesock.
 '
+' v1_7                 Eric Smith: removed endianness swaps to work with little
+'                          endian zpu toolchain
 '
 '
 '#define SINGLE_STEP
