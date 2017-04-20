@@ -1,5 +1,6 @@
 # Path to the gcc executable and friends
 # TOOLPATH=/home/michael/ZPU/toolchain/install/bin/
+TOOLPATH=/opt/zpu/bin/
 
 # The compiler/linker
 CC=$(TOOLPATH)zpu-elf-gcc
@@ -47,7 +48,8 @@ $(EXECUTABLE): $(OBJECTS)
 # And reverse endianness.
 $(BINARY): $(EXECUTABLE)
 	$(OC) $(EXECUTABLE) $(BINARY)
-	objcopy -I binary -O binary --reverse-bytes=4  $(BINARY)
+#	objcopy -I binary -O binary --reverse-bytes=4  $(BINARY)
+	objcopy -I binary -O binary $(BINARY)
 
 # Create a listing file
 $(LISTING): $(EXECUTABLE)

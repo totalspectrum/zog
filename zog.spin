@@ -352,7 +352,7 @@ zpu_loadb
 
 #ifdef USE_JCACHED_MEMORY
                         mov     addr, tos
-                        xor     addr, #%11              'XOR here is an endianess fix.
+''                        xor     addr, #%11              'XOR here is an endianess fix.
                         call    #zpu_cache              'z flag is set if address is in current buffer
             if_ne       call    #cache_read             'If address not in current buffer, read new buffer
                         rdbyte  tos, memp               'zpu_cache / cache_read leaves address in memp
@@ -361,7 +361,7 @@ zpu_loadb
 ':waitmbox              rdlong  temp, mboxcmd wz        'If only one client to VMCOG, these first two
 '              if_nz    jmp     #:waitmbox              'instructions are not necc
                         mov     addr, tos
-                        xor     addr, #%11              'XOR here is an endianess fix.
+''                        xor     addr, #%11              'XOR here is an endianess fix.
                         shl     addr, #9
                         movs    addr, #READVMB
                         wrlong  addr, mboxcmd
@@ -371,7 +371,7 @@ zpu_loadb
 #endif
 #ifdef USE_HUB_MEMORY
                         mov     memp, tos
-                        xor     memp, #%11              'XOR here is an endianess fix.
+''                        xor     memp, #%11              'XOR here is an endianess fix.
                         add     memp, zpu_memory_addr
                         rdbyte  tos, memp
 #endif
@@ -381,7 +381,7 @@ zpu_storeb              call    #pop
 
 #ifdef USE_JCACHED_MEMORY
                         mov     addr, tos
-                        xor     addr, #%11              'XOR here is an endianess fix.
+''                        xor     addr, #%11              'XOR here is an endianess fix.
                         call    #zpu_cache
             if_ne       call    #cache_write
                         wrbyte  data, memp
@@ -391,7 +391,7 @@ zpu_storeb              call    #pop
 '              if_nz    jmp     #:waitmbox              'instructions are not necc
                         wrbyte  data, mboxdat
                         mov     addr, tos
-                        xor     addr, #%11              'XOR here is an endianess fix.
+''                        xor     addr, #%11              'XOR here is an endianess fix.
                         shl     addr, #9
                         movs    addr, #WRITEVMB
                         wrlong  addr, mboxcmd
@@ -401,7 +401,7 @@ zpu_storeb              call    #pop
 #endif
 #ifdef USE_HUB_MEMORY
                         mov     memp, tos
-                        xor     memp, #%11              'XOR here is an endianess fix.
+''                        xor     memp, #%11              'XOR here is an endianess fix.
                         add     memp, zpu_memory_addr
                         wrbyte  data, memp
 #endif
@@ -722,7 +722,7 @@ read_word
 
 #ifdef USE_JCACHED_MEMORY
                         mov     addr, address
-                        xor     addr, #%10              'XOR here is an endianess fix.
+''                        xor     addr, #%10              'XOR here is an endianess fix.
                         call    #zpu_cache
             if_ne       call    #cache_read
                         rdword  data, memp
@@ -731,7 +731,7 @@ read_word
 ':waitmbox              rdlong  temp, mboxcmd wz        'If only one client to VMCOG, these first two
 '              if_nz    jmp     #:waitmbox              'instructions are not necc
                         mov     addr, address
-                        xor     addr, #%10              'XOR here is an endianess fix.
+''                        xor     addr, #%10              'XOR here is an endianess fix.
                         shl     addr, #9
                         movs    addr, #READVMW
                         wrlong  addr, mboxcmd
@@ -742,7 +742,7 @@ read_word
 #ifdef USE_HUB_MEMORY
                         mov     memp, address
                         add     memp, zpu_memory_addr
-                        xor     memp, #%10              'XOR here is an endianess fix.
+''                        xor     memp, #%10              'XOR here is an endianess fix.
                         rdword  data, memp
 #endif
 read_word_ret           ret
@@ -751,7 +751,7 @@ read_word_ret           ret
 write_word
 #ifdef USE_JCACHED_MEMORY
                         mov     addr, address
-                        xor     addr, #%10              'XOR here is an endianess fix.
+''                        xor     addr, #%10              'XOR here is an endianess fix.
                         call    #zpu_cache
             if_ne       call    #cache_write
                         wrword  data, memp
@@ -761,7 +761,7 @@ write_word
 '              if_nz    jmp     #:waitmbox              'instructions are not necc
                         wrlong  data, mboxdat
                         mov     addr, address
-                        xor     addr, #%10              'XOR here is an endianess fix.
+''                        xor     addr, #%10              'XOR here is an endianess fix.
                         shl     addr, #9
                         movs    addr, #WRITEVMW
                         wrlong  addr, mboxcmd
@@ -772,7 +772,7 @@ write_word
 #ifdef USE_HUB_MEMORY
                         mov     memp, address
                         add     memp, zpu_memory_addr
-                        xor     memp, #%10              'XOR here is an endianess fix.
+''                        xor     memp, #%10              'XOR here is an endianess fix.
                         wrword  data, memp
 #endif
 write_word_ret          ret
@@ -854,7 +854,7 @@ done
 execute
 #ifdef USE_JCACHED_MEMORY
                         mov     addr, pc
-                        xor     addr, #%11              'XOR here is an endianess fix.
+''                        xor     addr, #%11              'XOR here is an endianess fix.
 
 '                       call    #zpu_cache              'in-lining gives ity-bity speed improvement
                         mov     memp, addr              'ptr + mboxdat = hub address of byte to load
@@ -872,7 +872,7 @@ execute
 ':waitmbox              rdlong  temp, mboxcmd wz        'If only one client to VMCOG, these first two
 '              if_nz    jmp     #:waitmbox              'instructions are not necc
                         mov     addr, pc
-                        xor     addr, #%11              'XOR here is an endianess fix.
+''                        xor     addr, #%11              'XOR here is an endianess fix.
                         shl     addr, #9
                         movs    addr, #READVMB
                         wrlong  addr, mboxcmd
@@ -882,7 +882,7 @@ execute
 #endif
 #ifdef USE_HUB_MEMORY
                         mov     memp, pc
-                        xor     memp, #%11              'XOR here is an endianess fix.
+''                        xor     memp, #%11              'XOR here is an endianess fix.
                         add     memp, zpu_memory_addr
                         rdbyte  data, memp
 #endif

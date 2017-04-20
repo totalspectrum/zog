@@ -141,12 +141,15 @@ CON
     spiDI           = def#spiDI
     spiCS           = def#spiCS
 
+    ENDIAN_FIX      = %00 '' or %11 for big endian swapped
+    
 DAT                     org 0
 zpu_memory              byte ' Force zpu_memory to be BYTE type.
 #ifdef USE_HUB_MEMORY
 'zpu_image               file "test.bin"
-'zpu_image               file "fibo.bin"
-zpu_image               file "xxtea.bin"
+zpu_image               file "fibo.bin"
+'zpu_image               file "xxtea.bin"
+'zpu_image               file "fftbench.bin"
 padding                 byte 0[(zpu_memory_size) - (@padding - @zpu_memory)]
 zpu_memory_end
                         fit (zpu_memory_size / 4)
@@ -172,7 +175,7 @@ zpu_memory_size = (1 << 25)                              'The size of ZPU memory
 zpu_memory_size = (64 * 1024)                            'The size of ZPU memory area
 #endif
 #ifdef USE_HUB_MEMORY
-zpu_memory_size = (22 * 1024)                            'The size of ZPU memory area
+zpu_memory_size = (23 * 1024)                            'The size of ZPU memory area
 #endif
 
 ' These are the SPIN byte codes for mul and div
@@ -222,8 +225,8 @@ UART_TX_PORT  = $80000024 'ZPU virtual UART I/O ports
 UART_RX_PORT  = $80000028
 
 OBJ
-'  zog  : "zog"
-  zog  : "zog_jit"
+  zog  : "zog"
+'  zog  : "zog_jit"
   ser  : "FullDuplexSerialPlus"
 #ifdef USE_JCACHED_MEMORY
   sd   : "fsrwFemto_rr001"                          'SD Software used in FemtoBASIC
@@ -464,10 +467,10 @@ PUB prime_vm | vbyte, count, ramaddr
   ser.str (string("Priming VM...", 13))
   repeat count from 1 to 2
     repeat ramaddr from $FC00 to $FFFF
-      vbyte := cm.readbyte(ramaddr ^ %11)
+      vbyte := cm.readbyte(ramaddr ^ ENDIAN_FIX)
   repeat count from 1 to 1000
     repeat ramaddr from $05b9 to $05d5
-      vbyte := cm.readbyte(ramaddr ^ %11)
+      vbyte := cm.readbyte(ramaddr ^ ENDIAN_FIX)
   ser.str (string("Done", 13))
 }
 PRI dump_virtual | ad, b, i, e
@@ -479,7 +482,7 @@ PRI dump_virtual | ad, b, i, e
       ser.hex(ad,4)
       ser.tx(":")
       ser.tx(" ")
-    b:=cm.readbyte(ad ^ %11)                            'XOR here is an endiannes fix
+    b:=cm.readbyte(ad ^ ENDIAN_FIX)                            'XOR here is an endiannes fix
     ser.hex(b,2)
     ser.tx($20)
     i := i + 1
@@ -494,10 +497,10 @@ PUB prime_vm | vbyte, count, ramaddr
   ser.str (string("Priming VM...", 13))
   repeat count from 1 to 2
     repeat ramaddr from $FC00 to $FFFF
-      vbyte := vm.rdvbyte(ramaddr ^ %11)
+      vbyte := vm.rdvbyte(ramaddr ^ ENDIAN_FIX)
   repeat count from 1 to 1000
     repeat ramaddr from $05b9 to $05d5
-      vbyte := vm.rdvbyte(ramaddr ^ %11)
+      vbyte := vm.rdvbyte(ramaddr ^ ENDIAN_FIX)
   ser.str (string("Done", 13))
 #endif
 
@@ -533,7 +536,7 @@ PRI dump_virtual | ad, b, i, e
       ser.hex(ad,4)
       ser.tx(":")
       ser.tx(" ")
-    b:=vm.rdvbyte(ad ^ %11)                             'XOR here is an endiannes fix
+    b:=vm.rdvbyte(ad ^ ENDIAN_FIX)                             'XOR here is an endiannes fix
     ser.hex(b,2)
     ser.tx($20)
     i := i + 1
@@ -693,7 +696,7 @@ PRI _read | i, f, p
   case long[framep + 12]                                'Check file descriptor
     STDIN_FILENO, STDERR_FILENO:                        'Console input?
       repeat i from 0 to long[framep + 20] - 1          'Input nbytes
-        byte[p ^ %11] := ser.rx                         'XOR here is an endianess fix.
+        byte[p ^ ENDIAN_FIX] := ser.rx                         'XOR here is an endianess fix.
         p++
     other:
       'FIXME: Other file and device input here
@@ -710,7 +713,7 @@ PRI _write | i, p, f
   case long[framep + 12]                                'Check file descriptor
     STDOUT_FILENO,STDERR_FILENO:                        'Console output?
       repeat i from 0 to long[framep + 20] - 1          'Output nbytes
-        ser.tx(byte[p ^ %11])                           'XOR here is an endianess fix.
+        ser.tx(byte[p ^ ENDIAN_FIX])                           'XOR here is an endianess fix.
         p++
     other:
       'FIXME: Other file and device output here
@@ -771,13 +774,13 @@ PRI print_regs | i, p, op
   ser.tx($20)
   ser.str(string("0X"))
 #ifdef USE_JCACHED_MEMORY
-  op := cm.readbyte(zog_mbox_pc ^ %11)                  'XOR here is an endianess fix.
+  op := cm.readbyte(zog_mbox_pc ^ ENDIAN_FIX)                  'XOR here is an endianess fix.
 #endif
 #ifdef USE_VIRTUAL_MEMORY
-  op := vm.rdvbyte(zog_mbox_pc ^ %11)                   'XOR here is an endianess fix.
+  op := vm.rdvbyte(zog_mbox_pc ^ ENDIAN_FIX)                   'XOR here is an endianess fix.
 #endif
 #ifdef USE_HUB_MEMORY
-  op := zpu_memory[zog_mbox_pc ^ %11]                   'XOR here is an endianess fix.
+  op := zpu_memory[zog_mbox_pc ^ ENDIAN_FIX]                   'XOR here is an endianess fix.
 #endif
   ser.hex(op, 2)
   ser.tx($20)
