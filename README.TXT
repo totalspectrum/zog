@@ -1,3 +1,12 @@
+This is an emulator for the ZPU microprocessor, running on the
+Parallax Propeller. Actually it's two emulators; the original zog.spin
+written by Michael Rychlik (heater) and posted on the forums, and a
+just in time compiler (zog_jit.spin) written by Eric Smith. They both
+have the same interfaces, although zog.spin is much more flexible in
+terms of what kind of memory it can access. They're both driven by a
+common test harness (debug_zog.spin), also written by Michael Rychlik.
+
+The original README.TXT is below:
 
                                   ZOG
                                   ----
