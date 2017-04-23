@@ -143,6 +143,7 @@
 #define SPEED_ADD_LOAD_STORE_SP
 #define USE_FASTER_MULT
 
+CON
 ' These are the SPIN byte codes for mul and div
 'SPIN_MUL_OP     = $F4  '(multiply, return lower 32 bits)
 SPIN_DIV_OP     = 0 '$F6  '(divide, return quotient 32 bits)
