@@ -175,7 +175,7 @@ zpu_memory_size = (1 << 25)                              'The size of ZPU memory
 zpu_memory_size = (64 * 1024)                            'The size of ZPU memory area
 #endif
 #ifdef USE_HUB_MEMORY
-zpu_memory_size = (23 * 1024)                            'The size of ZPU memory area
+zpu_memory_size = (20 * 1024)                            'The size of ZPU memory area
 #endif
 
 ' These are the SPIN byte codes for mul and div
@@ -225,9 +225,14 @@ UART_TX_PORT  = $80000024 'ZPU virtual UART I/O ports
 UART_RX_PORT  = $80000028
 
 OBJ
-'  zog  : "zog"
-  zog  : "zog_jit"
+#ifdef __P2__
+  zog  : "zog_p2"
+  ser  : "SimpleSerial"
+#else
+  zog  : "zog"
   ser  : "FullDuplexSerialPlus"
+#endif
+'  zog  : "zog_jit"
 #ifdef USE_JCACHED_MEMORY
   sd   : "fsrwFemto_rr001"                          'SD Software used in FemtoBASIC
   cm   : "SdramCache"                               'sdram cache interface
@@ -281,7 +286,7 @@ VAR
 
 PUB start : okay | n
   ser.start(def#conRxPin, def#conTxPin, def#conMode, def#conBaud) 'Start the debug Terminal
-  ser.str(string("ZOG v1.6"))
+  ser.str(string("ZOG v1.7"))
 
 #ifdef USE_JCACHED_MEMORY
   cm.start(@vm_mbox)                                    'Start up cache

@@ -847,7 +847,7 @@ zpu_im_first            call    #push_tos
                         mov     tos, data
                         shl     tos, #(32 - 7)          'Sign extend
                         sar     tos, #(32 - 7)
-                        movs    which_im, #zpu_im_next  'N.B. Drops through to done_and_inc_pc
+                        mov     which_im, #zpu_im_next  'N.B. Drops through to done_and_inc_pc
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -893,13 +893,14 @@ execute
                         call    #break
 #endif
                         cmpsub  data, #$80 wc           'Check for IM instruction. This saves table lookup
-which_im      if_c      jmp     #zpu_im_first           'for the most common op. 7% fibo speed gain!
-                        movs    which_im, #zpu_im_first 'Self modifying code at which_im selects, first or subsequent IM.
+              if_c      jmp     which_im           'for the most common op. 7% fibo speed gain!
+                        mov     which_im, #zpu_im_first 'select state
                         mov     address, data           'Some opcodes contains address offsets.
 
                         add     data, dispatch_tab_addr
                         rdbyte  temp, data
                         jmp     temp                    'No # here we are jumping through temp.
+which_im		long	zpu_im_first
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
