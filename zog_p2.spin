@@ -230,7 +230,7 @@ zpu_addsp               and     address, #$0F
                         add     tos, data
                         jmp     #done_and_inc_pc
 
-zpu_loadsp_tos          call    #push_tos
+zpu_loadsp_tos          wrlong	tos, ptrb--
                         jmp     #done_and_inc_pc
 
 zpu_loadsp_hi           ' this will fall through if we're saving space
@@ -238,7 +238,7 @@ zpu_loadsp_hi           ' this will fall through if we're saving space
                         and     address, #$0F           'bit 4 was 1...Trust me, you need this.
                         shl     address, #2
                         add     address, ptrb
-                        call    #push_tos
+                        wrlong	tos, ptrb--
                         rdlong	data, address
                         mov     tos, data
                         jmp     #done_and_inc_pc
@@ -247,7 +247,7 @@ zpu_loadsp              and     address, #$1F
                         xor     address, #$10           'Trust me, you need this.
                         shl     address, #2
                         add     address, ptrb
-                        call    #push_tos
+                        wrlong	tos, ptrb--
                         rdlong	data, address
                         mov     tos, data
                         jmp     #done_and_inc_pc
@@ -282,7 +282,7 @@ zpu_config              mov     cpu, tos
                         mov     tos, data
                         jmp     #done_and_inc_pc
 
-zpu_pushpc              call    #push_tos
+zpu_pushpc              wrlong	tos, ptrb--
                         mov     tos, pc
                         jmp     #done_and_inc_pc
 
@@ -332,7 +332,7 @@ zpu_sub                 call    #pop_data
                         mov     tos, data
                         jmp     #done_and_inc_pc
 
-zpu_pushsp              call    #push_tos
+zpu_pushsp              wrlong	tos, ptrb--
                         mov     tos, ptrb
                         add     tos, #4
 			sub	tos, zpu_memory_addr
@@ -495,12 +495,6 @@ div_zero_error
 '------------------------------------------------------------------------------
 'ZPU memory space access routines
 
-'Push a LONG onto the stack from "tos"
-push_tos
-
-                        wrlong  tos, ptrb--
-push_tos_ret            ret
-
 'Pop a LONG from the stack into "data", set Z according to data.
 pop_data
                         rdlong  data, ++ptrb wz           'Must set Z for caller
@@ -656,7 +650,7 @@ zpu_im_next             shl     tos, #7
                         or      tos, data
                         jmp     #done_and_inc_pc
 
-zpu_im_first            call    #push_tos
+zpu_im_first            wrlong	tos, ptrb--
                         mov     tos, data
                         shl     tos, #(32 - 7)          'Sign extend
                         sar     tos, #(32 - 7)
