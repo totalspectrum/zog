@@ -252,8 +252,7 @@ zpu_loadsp              and     address, #$1F
                         mov     tos, data
                         jmp     #done_and_inc_pc
 
-zpu_storesp_tos         call    #pop_data
-                        mov     tos, data
+zpu_storesp_tos         rdlong	tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 
 zpu_storesp_hi          ' this will fall through if we're saving space
@@ -263,8 +262,7 @@ zpu_storesp_hi          ' this will fall through if we're saving space
                         add     address, ptrb
                         mov     data, tos
 			wrlong	data, address
-                        call    #pop_data
-                        mov     tos, data
+                        rdlong	tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 #endif
 zpu_storesp             and     address, #$1F
@@ -273,20 +271,18 @@ zpu_storesp             and     address, #$1F
                         add     address, ptrb
                         mov     data, tos
 			wrlong	data, address
-                        call    #pop_data
-                        mov     tos, data
+                        rdlong	tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 
 zpu_config              mov     cpu, tos
-                        call    #pop_data
-                        mov     tos, data
+                        rdlong	tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 
 zpu_pushpc              wrlong	tos, ptrb--
                         mov     tos, pc
                         jmp     #done_and_inc_pc
 
-zpu_or                  call    #pop_data
+zpu_or                  rdlong  data, ++ptrb wz
                         or      tos, data
                         jmp     #done_and_inc_pc
 
@@ -303,31 +299,28 @@ zpu_pushspadd           shl     tos, #2
 			sub	tos, zpu_memory_addr
                         jmp     #done_and_inc_pc
 
-zpu_store               call    #pop_data
+zpu_store               rdlong	data, ++ptrb wz
                         mov     address, tos
                         call    #write_long
-                        call    #pop_data
-                        mov     tos, data
+                        rdlong  tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 
 zpu_poppc               mov     pc, tos
-                        call    #pop_data
-                        mov     tos, data
+                        rdlong	tos, ++ptrb wz
                         jmp     #done
 
 zpu_poppcrel            add     pc, tos
-                        call    #pop_data
-                        mov     tos, data
+			rdlong	tos, ++ptrb wz
                         jmp     #done
 
 zpu_flip                rev     tos, #32
                         jmp     #done_and_inc_pc
 
-zpu_add                 call    #pop_data
+zpu_add                 rdlong	data, ++ptrb wz
                         add     tos, data
                         jmp     #done_and_inc_pc
 
-zpu_sub                 call    #pop_data
+zpu_sub                 rdlong	data, ++ptrb wz
                         sub     data, tos
                         mov     tos, data
                         jmp     #done_and_inc_pc
@@ -345,30 +338,27 @@ zpu_popsp               mov     ptrb, tos
 
 zpu_nop                 jmp     #done_and_inc_pc
 
-zpu_and                 call    #pop_data
+zpu_and                 rdlong	data, ++ptrb wz
                         and     tos, data
                         jmp     #done_and_inc_pc
 
-zpu_xor                 call    #pop_data
+zpu_xor                 rdlong	data, ++ptrb wz
                         xor     tos, data
                         jmp     #done_and_inc_pc
 
 zpu_loadb
 
                         mov     memp, tos
-''                        xor     memp, #%11              'XOR here is an endianess fix.
                         add     memp, zpu_memory_addr
                         rdbyte  tos, memp
                         jmp     #done_and_inc_pc
 
-zpu_storeb              call    #pop_data
+zpu_storeb              rdlong	data, ++ptrb wz
 
                         mov     memp, tos
-''                        xor     memp, #%11              'XOR here is an endianess fix.
                         add     memp, zpu_memory_addr
                         wrbyte  data, memp
-                        call    #pop_data
-                        mov     tos, data
+			rdlong	tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 
 zpu_loadh               mov     address, tos
@@ -376,32 +366,31 @@ zpu_loadh               mov     address, tos
                         mov     tos, data
                         jmp     #done_and_inc_pc
 
-zpu_storeh              call    #pop_data
+zpu_storeh              rdlong	data, ++ptrb wz
                         mov     address, tos
                         call    #write_word
-                        call    #pop_data
-                        mov     tos, data
+                        rdlong	tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 
-zpu_lessthan            call    #pop_data
+zpu_lessthan            rdlong	data, ++ptrb
                         cmps    tos, data wz,wc
                         mov     tos, #0
               if_b      mov     tos, #1
                         jmp     #done_and_inc_pc
 
-zpu_lessthanorequal     call    #pop_data
+zpu_lessthanorequal     rdlong	data, ++ptrb
                         cmps    tos, data wz,wc
                         mov     tos, #0
               if_be     mov     tos, #1
                         jmp     #done_and_inc_pc
 
-zpu_ulessthan           call    #pop_data
+zpu_ulessthan           rdlong	data, ++ptrb
                         cmp     tos, data wz, wc
                         mov     tos, #0
               if_b      mov     tos, #1
                         jmp     #done_and_inc_pc
 
-zpu_ulessthanorequal    call    #pop_data
+zpu_ulessthanorequal    rdlong	data, ++ptrb
                         cmp     tos, data wz, wc
                         mov     tos, #0
               if_be     mov     tos, #1
@@ -410,49 +399,47 @@ zpu_ulessthanorequal    call    #pop_data
 zpu_swap                ror     tos, #16
                         jmp     #done_and_inc_pc
 
-zpu_mult16x16           call    #pop_data
+zpu_mult16x16           rdlong	data, ++ptrb wz
                         and     data, word_mask
                         and     tos, word_mask
                         jmp     #fast_mul
 
-zpu_eqbranch            call    #pop_data
+zpu_eqbranch            rdlong	data, ++ptrb wz
               if_z      add     pc, tos
               if_nz     add     pc, #1
-                        call    #pop_data
-                        mov     tos, data
+                        rdlong	tos, ++ptrb wz
                         jmp     #done
 
-zpu_neqbranch           call    #pop_data
+zpu_neqbranch           rdlong	data, ++ptrb wz
               if_nz     add     pc, tos
               if_z      add     pc, #1
-                        call    #pop_data
-                        mov     tos, data
+                        rdlong	tos, ++ptrb wz
                         jmp     #done
 
-zpu_mult                call    #pop_data
+zpu_mult                rdlong	data, ++ptrb wz
                         jmp     #fast_mul
 
-zpu_div                 call    #pop_data          ' pop sets z for me
+zpu_div                 rdlong	data, ++ptrb wz
               if_z      jmp     #div_zero_error
                         mov     div_flags, #SPIN_DIV_OP
                         jmp     #fast_div
 
-zpu_mod                 call    #pop_data          ' pop sets z for me
+zpu_mod                 rdlong	data, ++ptrb wz
               if_z      jmp     #div_zero_error
                         mov     div_flags, #SPIN_REM_OP
                         jmp     #fast_div
 
-zpu_lshiftright         call    #pop_data
+zpu_lshiftright         rdlong	data, ++ptrb wz
                         shr     data, tos
                         mov     tos, data
                         jmp     #done_and_inc_pc
 
-zpu_ashiftleft          call    #pop_data
+zpu_ashiftleft          rdlong	data, ++ptrb wz
                         shl     data, tos
                         mov     tos, data
                         jmp     #done_and_inc_pc
 
-zpu_ashiftright         call    #pop_data
+zpu_ashiftright         rdlong	data, ++ptrb wz
                         sar     data, tos
                         mov     tos, data
                         jmp     #done_and_inc_pc
@@ -469,13 +456,13 @@ zpu_callpcrel           mov     temp, tos
                         add     pc, temp
                         jmp     #done
 
-zpu_eq                  call    #pop_data
+zpu_eq                  rdlong	data, ++ptrb
                         cmp     tos, data wz
               if_z      mov     tos, #1
               if_nz     mov     tos, #0
                         jmp     #done_and_inc_pc
 
-zpu_neq                 call    #pop_data
+zpu_neq                 rdlong	data, ++ptrb
                         sub     tos, data wz
               if_nz     mov     tos, #1
                         jmp     #done_and_inc_pc
@@ -494,11 +481,6 @@ div_zero_error
                         fit $FF                         'Opcode handlers must fit in 256 LONGS
 '------------------------------------------------------------------------------
 'ZPU memory space access routines
-
-'Pop a LONG from the stack into "data", set Z according to data.
-pop_data
-                        rdlong  data, ++ptrb wz           'Must set Z for caller
-pop_data_ret            ret
 
 'Read a LONG from ZPU memory at "address" into "data"
 read_long               cmp     address, zpu_hub_start wc 'Check for normal memory access
