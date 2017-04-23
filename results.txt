@@ -1,0 +1,44 @@
+xxtea:
+zog  970128 -> 885696 little endian
+L2   851840 -> 835968 with binaryop improvement
+            -> 823424 at cache 0
+	    -> 442016 with double cache (??)
+	    -> 679168 little endian
+	    
+fibo(8):
+zog  220064 -> 205584 with little endian
+L2   150672 -> 149744 with binaryop improvements
+            -> 230352 with cache @0 (single line)
+	    -> 115680 with double cache	     -> 115648 little endian
+
+fftbench: binary size 8204
+gcc lmm:   142829 us
+fastspin:  171422 us
+gcc cmm:   508023 us
+zog JIT:   976817 us ->  976411 us with little endian
+zog 1.6:  1376254 us -> 1264611 us with little endian
+openspin: 1465321 us
+
+==================================================
+P2:
+
+orig:
+
+fibo(8):  136872 cycles
+xxtea:    591052 cycles
+fftbench: 839243 us
+
+after sp optimization:
+fibo(8):  119996 cycles
+xxtea:    515168 cycles
+fftbench: 762344 us
+
+after stack in ptrb
+fibo(8):  103236 cycles
+xxtea:    445068 cycles
+fftbench: 632909 us
+
+after pc changed to be zpu memory based
+fibo(8):   97452 cycles
+xxtea:    414380 cycles
+fftbench: 592482 us
