@@ -6,6 +6,19 @@ have the same interfaces, although zog.spin is much more flexible in
 terms of what kind of memory it can access. They're both driven by a
 common test harness (debug_zog.spin), also written by Michael Rychlik.
 
+A preliminary port to the Propeller2 is in the file zog_p2.spin. This
+is a strict interpreter (not JIT) and is basically the original
+zog.spin, with the small changes needed for P2 support. You'll need
+fastspin 3.6.2 to compile this; do "fastspin -2 debug_zog.spin" to get
+a P2 debug_zog.binary. The P2 port does not use any P2 features yet
+(like qmul or qdiv, or for that matter XBYTE).
+
+Unlike the original ZOG, this emulator relies on a little endian ZPU
+toolchain. The GCC toolchain I used is checked in to
+
+  https://github.com/totalspectrum/zpugccle
+  
+
 The original README.TXT is below:
 
                                   ZOG
