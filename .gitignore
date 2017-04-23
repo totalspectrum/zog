@@ -3,3 +3,6 @@
 *.binary
 *.bin
 *~
+*.pasm
+*.p2asm
+*.elf
