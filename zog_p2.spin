@@ -309,11 +309,11 @@ zpu_store               rdlong	data, ++ptrb wz
 zpu_poppc               mov     pc, tos
 			add	pc, zpu_memory_addr
                         rdlong	tos, ++ptrb wz
-                        jmp     #done
+                        jmp     #done_new_pc
 
 zpu_poppcrel            add     pc, tos
 			rdlong	tos, ++ptrb wz
-                        jmp     #done
+                        jmp     #done_new_pc
 
 zpu_flip                rev     tos, #32
                         jmp     #done_and_inc_pc
@@ -408,15 +408,15 @@ zpu_mult16x16           rdlong	data, ++ptrb wz
 
 zpu_eqbranch            rdlong	data, ++ptrb wz
               if_z      add     pc, tos
-              if_nz     add     pc, #1
-                        rdlong	tos, ++ptrb wz
-                        jmp     #done
+	      if_nz	add	pc, #1
+                        rdlong	tos, ++ptrb
+                        jmp     #done_new_pc
 
 zpu_neqbranch           rdlong	data, ++ptrb wz
               if_nz     add     pc, tos
-              if_z      add     pc, #1
-                        rdlong	tos, ++ptrb wz
-                        jmp     #done
+	      if_z	add	pc, #1
+                        rdlong	tos, ++ptrb
+                        jmp     #done_new_pc
 
 zpu_mult                rdlong	data, ++ptrb wz
                         jmp     #fast_mul
@@ -452,14 +452,14 @@ zpu_call                mov     temp, tos
 			sub	tos, zpu_memory_addr
                         mov     pc, temp
 			add	pc, zpu_memory_addr
-                        jmp     #done
+                        jmp     #done_new_pc
 
 zpu_callpcrel           mov     temp, tos
                         mov     tos, pc
                         add     tos, #1
 			sub	tos, zpu_memory_addr
                         add     pc, temp
-                        jmp     #done
+                        jmp     #done_new_pc
 
 zpu_eq                  rdlong	data, ++ptrb
                         cmp     tos, data wz
@@ -481,7 +481,7 @@ not_implemented
 zpu_illegal
 div_zero_error
                         call    #break
-                        jmp     #done
+                        jmp     #done_new_pc
 '------------------------------------------------------------------------------
                         fit $FF                         'Opcode handlers must fit in 256 LONGS
 '------------------------------------------------------------------------------
@@ -647,9 +647,8 @@ zpu_im_first            wrlong	tos, ptrb--
 '------------------------------------------------------------------------------
 ' Main ZPU fetch and execute loop
 done_and_inc_pc         add     pc, #1
-done
-execute
-                        rdbyte  data, pc
+nexti
+                        rdbyte  data, ptra++
 #ifdef SINGLE_STEP
                         call    #break
 #endif
@@ -661,6 +660,10 @@ fixup         if_c      jmp     which_im           'No # here jumping through te
                         add     data, dispatch_tab_addr
                         rdbyte  temp, data
                         jmp     temp                    'No # here we are jumping through temp.
+
+done_new_pc
+			mov	ptra, pc
+			jmp	#nexti
 
 which_im		long	0
 '------------------------------------------------------------------------------
@@ -723,7 +726,7 @@ mboxdat                 mov     mboxdat, temp        'Pointer to second long of 
 #endif
 			add	ptrb, zpu_memory_addr
 			add	pc, zpu_memory_addr
-                        jmp     #execute
+                        jmp     #done_new_pc
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
