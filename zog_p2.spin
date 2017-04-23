@@ -280,6 +280,7 @@ zpu_config              mov     cpu, tos
 
 zpu_pushpc              wrlong	tos, ptrb--
                         mov     tos, pc
+			sub	tos, zpu_memory_addr
                         jmp     #done_and_inc_pc
 
 zpu_or                  rdlong  data, ++ptrb wz
@@ -306,6 +307,7 @@ zpu_store               rdlong	data, ++ptrb wz
                         jmp     #done_and_inc_pc
 
 zpu_poppc               mov     pc, tos
+			add	pc, zpu_memory_addr
                         rdlong	tos, ++ptrb wz
                         jmp     #done
 
@@ -447,12 +449,15 @@ zpu_ashiftright         rdlong	data, ++ptrb wz
 zpu_call                mov     temp, tos
                         mov     tos, pc
                         add     tos, #1
+			sub	tos, zpu_memory_addr
                         mov     pc, temp
+			add	pc, zpu_memory_addr
                         jmp     #done
 
 zpu_callpcrel           mov     temp, tos
                         mov     tos, pc
                         add     tos, #1
+			sub	tos, zpu_memory_addr
                         add     pc, temp
                         jmp     #done
 
@@ -644,10 +649,7 @@ zpu_im_first            wrlong	tos, ptrb--
 done_and_inc_pc         add     pc, #1
 done
 execute
-                        mov     memp, pc
-''                        xor     memp, #%11              'XOR here is an endianess fix.
-                        add     memp, zpu_memory_addr
-                        rdbyte  data, memp
+                        rdbyte  data, pc
 #ifdef SINGLE_STEP
                         call    #break
 #endif
@@ -720,11 +722,15 @@ mboxcmd                 add     temp, #8             'Pointer to first long of V
 mboxdat                 mov     mboxdat, temp        'Pointer to second long of VMCOG mailbox (+4 offset)
 #endif
 			add	ptrb, zpu_memory_addr
+			add	pc, zpu_memory_addr
                         jmp     #execute
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
-break                   wrlong  pc, pc_addr             'Dump registers to HUB.
+break
+			mov	memp, pc
+			sub	memp, zpu_memory_addr
+	                wrlong  memp, pc_addr             'Dump registers to HUB.
 			mov	memp, ptrb
 			sub	memp, zpu_memory_addr
                         wrlong  memp, sp_addr
