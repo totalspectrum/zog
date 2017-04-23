@@ -225,7 +225,7 @@ zpu_addsp_0             add     tos, tos                'Special case for offset
 
 zpu_addsp               and     address, #$0F
                         shl     address, #2
-                        add     address, sp
+                        add     address, ptrb
 			rdlong	data, address
                         add     tos, data
                         jmp     #done_and_inc_pc
@@ -237,7 +237,7 @@ zpu_loadsp_hi           ' this will fall through if we're saving space
 #ifdef SPEED_ADD_LOAD_STORE_SP
                         and     address, #$0F           'bit 4 was 1...Trust me, you need this.
                         shl     address, #2
-                        add     address, sp
+                        add     address, ptrb
                         call    #push_tos
                         rdlong	data, address
                         mov     tos, data
@@ -246,7 +246,7 @@ zpu_loadsp_hi           ' this will fall through if we're saving space
 zpu_loadsp              and     address, #$1F
                         xor     address, #$10           'Trust me, you need this.
                         shl     address, #2
-                        add     address, sp
+                        add     address, ptrb
                         call    #push_tos
                         rdlong	data, address
                         mov     tos, data
@@ -260,7 +260,7 @@ zpu_storesp_hi          ' this will fall through if we're saving space
 #ifdef SPEED_ADD_LOAD_STORE_SP
                         and     address, #$0F           'bit 4 was 1...Trust me, you need this.
                         shl     address, #2
-                        add     address, sp
+                        add     address, ptrb
                         mov     data, tos
 			wrlong	data, address
                         call    #pop_data
@@ -270,7 +270,7 @@ zpu_storesp_hi          ' this will fall through if we're saving space
 zpu_storesp             and     address, #$1F
                         xor     address, #$10           'Trust me, you need this.
                         shl     address, #2
-                        add     address, sp
+                        add     address, ptrb
                         mov     data, tos
 			wrlong	data, address
                         call    #pop_data
@@ -299,7 +299,7 @@ zpu_load                mov     address, tos
                         jmp     #done_and_inc_pc
 
 zpu_pushspadd           shl     tos, #2
-                        add     tos, sp
+                        add     tos, ptrb
 			sub	tos, zpu_memory_addr
                         jmp     #done_and_inc_pc
 
@@ -333,14 +333,14 @@ zpu_sub                 call    #pop_data
                         jmp     #done_and_inc_pc
 
 zpu_pushsp              call    #push_tos
-                        mov     tos, sp
+                        mov     tos, ptrb
                         add     tos, #4
 			sub	tos, zpu_memory_addr
                         jmp     #done_and_inc_pc
 
-zpu_popsp               mov     sp, tos
-			add	sp, zpu_memory_addr
-			rdlong	tos, sp
+zpu_popsp               mov     ptrb, tos
+			add	ptrb, zpu_memory_addr
+			rdlong	tos, ptrb
                         jmp     #done_and_inc_pc
 
 zpu_nop                 jmp     #done_and_inc_pc
@@ -498,13 +498,12 @@ div_zero_error
 'Push a LONG onto the stack from "tos"
 push_tos
 
-                        wrlong  tos, sp
-                        sub     sp, #4
+                        wrlong  tos, ptrb--
 push_tos_ret            ret
 
 'Pop a LONG from the stack into "data", set Z according to data.
-pop_data                add     sp, #4
-                        rdlong  data, sp wz           'Must set Z for caller
+pop_data
+                        rdlong  data, ++ptrb wz           'Must set Z for caller
 pop_data_ret            ret
 
 'Read a LONG from ZPU memory at "address" into "data"
@@ -702,7 +701,7 @@ zpu_memory_sz           rdlong  zpu_memory_sz, address   'Size of ZPU memory are
 temp                    add     address, #4          'For temp operands etc
 pc                      rdlong  pc, address          'ZPU Program Counter
 instruction             add     address, #4          'Opcode being executed.
-sp                      rdlong  sp, address          'ZPU Stack Pointer
+                        rdlong  ptrb, address          'ZPU Stack Pointer
 tos                     add     address, #4          'Top Of Stack
 dispatch_tab_addr       rdlong  dispatch_tab_addr, address'HUB address of instruction dispatch table
 data                    add     address, #4          'Data parameter for read, write etc
@@ -744,13 +743,13 @@ addr                    mov     mboxcmd, temp        'Address we want to read, c
 mboxcmd                 add     temp, #8             'Pointer to first long of VMCOG mailbox (+0 offset)
 mboxdat                 mov     mboxdat, temp        'Pointer to second long of VMCOG mailbox (+4 offset)
 #endif
-			add	sp, zpu_memory_addr
+			add	ptrb, zpu_memory_addr
                         jmp     #execute
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 break                   wrlong  pc, pc_addr             'Dump registers to HUB.
-			mov	memp, sp
+			mov	memp, ptrb
 			sub	memp, zpu_memory_addr
                         wrlong  memp, sp_addr
                         wrlong  tos, tos_addr
@@ -763,7 +762,7 @@ break_ret               ret
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
-syscall                 mov     address, sp             'Get syscall ID from stack
+syscall                 mov     address, ptrb             'Get syscall ID from stack
                         add     address, #8
 			rdlong	data, address
                         cmp     data, sys_cognew_ wz    'Is it SYS_cognew?
@@ -778,15 +777,15 @@ handle_sys_cognew
 			jmp	#zpu_illegal		'not implemented on P2
 
 syscall_external_handler
-			mov	memp, sp
+			mov	memp, ptrb
 			sub	memp, zpu_memory_addr
                         wrlong  memp, sp_addr
                         mov     temp, #io_cmd_syscall   'Set I/O command to SYSCALL
                         wrlong  temp, io_command_addr
 .wait                   rdlong  temp, io_command_addr wz'Wait for command completion
               if_nz     jmp     #.wait
-                        rdlong  sp, sp_addr
-			add	sp, zpu_memory_addr
+                        rdlong  ptrb, sp_addr
+			add	ptrb, zpu_memory_addr
                         jmp     #done_and_inc_pc
 '------------------------------------------------------------------------------
 
