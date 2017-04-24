@@ -490,35 +490,32 @@ read_long               cmp     address, zpu_hub_start wc 'Check for normal memo
 
                         mov     memp, address
                         add     memp, zpu_memory_addr
-                        rdlong  data, memp
-read_long_ret           ret
+    _ret_               rdlong  data, memp
+
 
 read_hub_long           cmp     address, zpu_cog_start wc 'Check for HUB memory access
               if_nc     jmp     #read_cog_long
 
                         sub     address, zpu_hub_start
-                        rdlong  data, address
-                        jmp     #read_long_ret
+             _ret_      rdlong  data, address
 
 read_cog_long           cmp     address, zpu_io_start wc  'Check for COG memory access
               if_nc     jmp     #read_io_long
 
                         shr     address, #2
                         alts    address, #0
-.rcog                   mov     data, 0-0
-                        jmp     #read_long_ret
+     _ret_              mov     data, 0-0
 
 read_io_long            cmp     address, timer_address wz 'Check for timer read
               if_z      getct   data
-              if_z      jmp     #read_long_ret
+              if_z      ret
                                                       'Must be other I/O address
                         wrlong  address, io_port_addr 'Set port address
                         mov     temp, #io_cmd_in      'Set I/O command to IN
                         wrlong  temp, io_command_addr
 .wait                   rdlong  temp, io_command_addr wz 'Wait for command to be completed
               if_nz     jmp     #.wait
-                        rdlong  data, io_data_addr    'Get the port data
-                        jmp     #read_long_ret
+        _ret_           rdlong  data, io_data_addr    'Get the port data
 
 'Write a LONG from "data" to ZPU memory at "address"
 write_long              cmp     address, zpu_hub_start wc 'Check for normal memory access
@@ -526,8 +523,7 @@ write_long              cmp     address, zpu_hub_start wc 'Check for normal memo
 
                         mov     memp, address
                         add     memp, zpu_memory_addr
-                        wrlong  data, memp
-write_long_ret          ret
+    _ret_               wrlong  data, memp
 
 
 write_hub_long          cmp     address, zpu_cog_start wc 'Check for HUB memory access
@@ -535,15 +531,15 @@ write_hub_long          cmp     address, zpu_cog_start wc 'Check for HUB memory 
 
                         sub     address, zpu_hub_start
                         wrlong  data, address
-                        jmp     #write_long_ret
+			ret
 
 write_cog_long          cmp     address, zpu_io_start wc
               if_nc     jmp     #write_io_long
 
                         shr     address, #2
                         altd    address, #0
-                        mov     0-0, data
-                        jmp     #write_long_ret
+    _ret_               mov     0-0, data
+
 
 write_io_long           wrlong  address, io_port_addr 'Set port address
                         wrlong  data, io_data_addr    'Set port data
@@ -551,7 +547,7 @@ write_io_long           wrlong  address, io_port_addr 'Set port address
                         wrlong  temp, io_command_addr
 .wait                   rdlong  temp, io_command_addr wz 'Wait for command to be completed
               if_nz     jmp     #.wait
-                        jmp     #write_long_ret
+	      		ret
 
 
 
@@ -661,7 +657,7 @@ exec_non_im
                         jmp     temp                    'No # here we are jumping through temp.
 
 done_new_pc
-			rdfast	zero, pc
+			rdfast	zero, pc		' should be rdfast #0,pc but fastspin has a bug
 			jmp	#nexti
 
 '------------------------------------------------------------------------------

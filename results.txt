@@ -57,3 +57,8 @@ streamlined lookup
 fibo(8):   61075 cycles
 xxtea:    239480 cycles
 fftbench: 346368 us
+
+more _ret_ optimization
+fibo(8):   60535 cycles
+xxtea:    238576 cycles
+fftbench: 344773 us
