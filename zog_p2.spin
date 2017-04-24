@@ -224,10 +224,10 @@ zpu_breakpoint          call    #break
 zpu_addsp_0             add     tos, tos                'Special case for offset = 0
                         jmp     #done_and_inc_pc
 
-zpu_addsp               and     address, #$0F
-                        shl     address, #2
-                        add     address, ptrb
-			rdlong	data, address
+zpu_addsp               and     pa, #$0F
+                        shl     pa, #2
+                        add     pa, ptrb
+			rdlong	data, pa
                         add     tos, data
                         jmp     #done_and_inc_pc
 
@@ -236,19 +236,19 @@ zpu_loadsp_tos          wrlong	tos, ptrb--
 
 zpu_loadsp_hi           ' this will fall through if we're saving space
 #ifdef SPEED_ADD_LOAD_STORE_SP
-                        and     address, #$0F           'bit 4 was 1...Trust me, you need this.
-                        shl     address, #2
-                        add     address, ptrb
+                        and     pa, #$0F           'bit 4 was 1...Trust me, you need this.
+                        shl     pa, #2
+                        add     pa, ptrb
                         wrlong	tos, ptrb--
-                        rdlong	tos, address
+                        rdlong	tos, pa
                         jmp     #done_and_inc_pc
 #endif
-zpu_loadsp              and     address, #$1F
-                        xor     address, #$10           'Trust me, you need this.
-                        shl     address, #2
-                        add     address, ptrb
+zpu_loadsp              and     pa, #$1F
+                        xor     pa, #$10           'Trust me, you need this.
+                        shl     pa, #2
+                        add     pa, ptrb
                         wrlong	tos, ptrb--
-                        rdlong	tos, address
+                        rdlong	tos, pa
                         jmp     #done_and_inc_pc
 
 zpu_storesp_tos         rdlong	tos, ++ptrb wz
@@ -256,18 +256,18 @@ zpu_storesp_tos         rdlong	tos, ++ptrb wz
 
 zpu_storesp_hi          ' this will fall through if we're saving space
 #ifdef SPEED_ADD_LOAD_STORE_SP
-                        and     address, #$0F           'bit 4 was 1...Trust me, you need this.
-                        shl     address, #2
-                        add     address, ptrb
-			wrlong	tos, address
+                        and     pa, #$0F           'bit 4 was 1...Trust me, you need this.
+                        shl     pa, #2
+                        add     pa, ptrb
+			wrlong	tos, pa
                         rdlong	tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 #endif
-zpu_storesp             and     address, #$1F
-                        xor     address, #$10           'Trust me, you need this.
-                        shl     address, #2
-                        add     address, ptrb
-			wrlong	tos, address
+zpu_storesp             and     pa, #$1F
+                        xor     pa, #$10           'Trust me, you need this.
+                        shl     pa, #2
+                        add     pa, ptrb
+			wrlong	tos, pa
                         rdlong	tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 
@@ -626,7 +626,7 @@ fast_div                ' tos = tos / data
 
 '------------------------------------------------------------------------------
 zpu_im_first            wrlong	tos, ptrb--
-                        mov     tos, address
+                        mov     tos, pa
                         shl     tos, #(32 - 7)          'Sign extend
                         sar     tos, #(32 - 7)
 
@@ -634,11 +634,12 @@ zpu_im_first            wrlong	tos, ptrb--
 			'' another im
 .imloop
 			add	pc, #1
-			rfbyte	address
-			cmpsub	address, #$80 wc	' remove the 80 if it is present
+			getptr	pb
+			rfbyte	pa
+			cmpsub	pa, #$80 wc	' remove the 80 if it is present
 	if_nc		jmp	#exec_non_im
 			shl	tos, #7
-			or	tos, address
+			or	tos, pa
 			jmp	#.imloop
 
 '------------------------------------------------------------------------------
@@ -647,13 +648,15 @@ zpu_im_first            wrlong	tos, ptrb--
 ' Main ZPU fetch and execute loop
 done_and_inc_pc         add     pc, #1
 nexti
-			rfbyte address			'Some opcodes contain address offsets
+			getptr	pb
+			rfbyte	pa			'Some opcodes contain address offsets
+
 #ifdef SINGLE_STEP
                         call    #break
 #endif
 
 exec_non_im
-			rdlut	temp, address
+			rdlut	temp, pa
                         jmp     temp                    'No # here we are jumping through temp.
 
 done_new_pc
