@@ -219,20 +219,20 @@ enter                   jmp     #init
 'Opcode handlers.
 
 zpu_breakpoint          call    #break
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_addsp_0             add     tos, tos                'Special case for offset = 0
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_addsp               and     pa, #$0F
                         shl     pa, #2
                         add     pa, ptrb
 			rdlong	data, pa
                         add     tos, data
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_loadsp_tos          wrlong	tos, ptrb--
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_loadsp_hi           ' this will fall through if we're saving space
 #ifdef SPEED_ADD_LOAD_STORE_SP
@@ -241,7 +241,7 @@ zpu_loadsp_hi           ' this will fall through if we're saving space
                         add     pa, ptrb
                         wrlong	tos, ptrb--
                         rdlong	tos, pa
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 #endif
 zpu_loadsp              and     pa, #$1F
                         xor     pa, #$10           'Trust me, you need this.
@@ -249,10 +249,10 @@ zpu_loadsp              and     pa, #$1F
                         add     pa, ptrb
                         wrlong	tos, ptrb--
                         rdlong	tos, pa
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_storesp_tos         rdlong	tos, ++ptrb wz
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_storesp_hi          ' this will fall through if we're saving space
 #ifdef SPEED_ADD_LOAD_STORE_SP
@@ -261,7 +261,7 @@ zpu_storesp_hi          ' this will fall through if we're saving space
                         add     pa, ptrb
 			wrlong	tos, pa
                         rdlong	tos, ++ptrb wz
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 #endif
 zpu_storesp             and     pa, #$1F
                         xor     pa, #$10           'Trust me, you need this.
@@ -269,88 +269,90 @@ zpu_storesp             and     pa, #$1F
                         add     pa, ptrb
 			wrlong	tos, pa
                         rdlong	tos, ++ptrb wz
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_config              mov     cpu, tos
                         rdlong	tos, ++ptrb wz
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_pushpc              wrlong	tos, ptrb--
                         mov     tos, pb
 			sub	tos, zpu_memory_addr
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_or                  rdlong  data, ++ptrb wz
                         or      tos, data
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_not                 xor     tos, minus_one
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_load                mov     address, tos
                         call    #read_long
                         mov     tos, data
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_pushspadd           shl     tos, #2
                         add     tos, ptrb
 			sub	tos, zpu_memory_addr
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_store               rdlong	data, ++ptrb wz
                         mov     address, tos
                         call    #write_long
                         rdlong  tos, ++ptrb wz
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_poppc               mov     pb, tos
 			add	pb, zpu_memory_addr
                         rdlong	tos, ++ptrb wz
-                        jmp     #done_new_pc
+			rdfast	zero, pb		' establish new pc
+			jmp	#nexti
 
 zpu_poppcrel            add     pb, tos
 			rdlong	tos, ++ptrb wz
-                        jmp     #done_new_pc
+			rdfast	zero, pb		' establish new pc
+			jmp	#nexti
 
 zpu_flip                rev     tos, #32
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_add                 rdlong	data, ++ptrb wz
                         add     tos, data
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_sub                 rdlong	data, ++ptrb wz
                         sub     data, tos
                         mov     tos, data
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_pushsp              wrlong	tos, ptrb--
                         mov     tos, ptrb
                         add     tos, #4
 			sub	tos, zpu_memory_addr
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_popsp               mov     ptrb, tos
 			add	ptrb, zpu_memory_addr
 			rdlong	tos, ptrb
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
-zpu_nop                 jmp     #done_and_inc_pc
+zpu_nop                 jmp     #nexti
 
 zpu_and                 rdlong	data, ++ptrb wz
                         and     tos, data
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_xor                 rdlong	data, ++ptrb wz
                         xor     tos, data
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_loadb
 
                         mov     memp, tos
                         add     memp, zpu_memory_addr
                         rdbyte  tos, memp
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_storeb              rdlong	data, ++ptrb wz
 
@@ -358,45 +360,45 @@ zpu_storeb              rdlong	data, ++ptrb wz
                         add     memp, zpu_memory_addr
                         wrbyte  data, memp
 			rdlong	tos, ++ptrb wz
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_loadh               mov     address, tos
                         call    #read_word
                         mov     tos, data
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_storeh              rdlong	data, ++ptrb wz
                         mov     address, tos
                         call    #write_word
                         rdlong	tos, ++ptrb wz
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_lessthan            rdlong	data, ++ptrb
                         cmps    tos, data wz,wc
                         mov     tos, #0
               if_b      mov     tos, #1
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_lessthanorequal     rdlong	data, ++ptrb
                         cmps    tos, data wz,wc
                         mov     tos, #0
               if_be     mov     tos, #1
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_ulessthan           rdlong	data, ++ptrb
                         cmp     tos, data wz, wc
                         mov     tos, #0
               if_b      mov     tos, #1
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_ulessthanorequal    rdlong	data, ++ptrb
                         cmp     tos, data wz, wc
                         mov     tos, #0
               if_be     mov     tos, #1
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_swap                ror     tos, #16
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_mult16x16           rdlong	data, ++ptrb wz
                         and     data, word_mask
@@ -407,13 +409,15 @@ zpu_eqbranch            rdlong	data, ++ptrb wz
               if_z      add     pb, tos
 	      if_nz	add	pb, #1
                         rdlong	tos, ++ptrb
-                        jmp     #done_new_pc
+			rdfast	zero, pb		' establish new pc
+                        jmp     #nexti
 
 zpu_neqbranch           rdlong	data, ++ptrb wz
               if_nz     add     pb, tos
 	      if_z	add	pb, #1
                         rdlong	tos, ++ptrb
-                        jmp     #done_new_pc
+			rdfast	zero, pb		' establish new pc
+                        jmp     #nexti
 
 zpu_mult                rdlong	data, ++ptrb wz
                         jmp     #fast_mul
@@ -431,17 +435,17 @@ zpu_mod                 rdlong	data, ++ptrb wz
 zpu_lshiftright         rdlong	data, ++ptrb wz
                         shr     data, tos
                         mov     tos, data
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_ashiftleft          rdlong	data, ++ptrb wz
                         shl     data, tos
                         mov     tos, data
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_ashiftright         rdlong	data, ++ptrb wz
                         sar     data, tos
                         mov     tos, data
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_call                mov     temp, tos
                         mov     tos, pb
@@ -449,28 +453,30 @@ zpu_call                mov     temp, tos
 			sub	tos, zpu_memory_addr
                         mov     pb, temp
 			add	pb, zpu_memory_addr
-                        jmp     #done_new_pc
+			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
+			jmp	#nexti
 
 zpu_callpcrel           mov     temp, tos
                         mov     tos, pb
                         add     tos, #1
 			sub	tos, zpu_memory_addr
                         add     pb, temp
-                        jmp     #done_new_pc
+			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
+			jmp	#nexti
 
 zpu_eq                  rdlong	data, ++ptrb
                         cmp     tos, data wz
               if_z      mov     tos, #1
               if_nz     mov     tos, #0
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_neq                 rdlong	data, ++ptrb
                         sub     tos, data wz
               if_nz     mov     tos, #1
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_neg                 neg     tos, tos
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 zpu_syscall             jmp     #syscall
 
@@ -478,7 +484,8 @@ not_implemented
 zpu_illegal
 div_zero_error
                         call    #break
-                        jmp     #done_new_pc
+			rdfast	zero, pb		' establish new pc
+			jmp	#nexti
 '------------------------------------------------------------------------------
                         fit $FF                         'Opcode handlers must fit in 256 LONGS
 '------------------------------------------------------------------------------
@@ -590,7 +597,7 @@ fast_mul                ' account for sign
                         shl     data, #1                ' shift the adder left by 1 bit
         if_nz           jmp     #.mul_loop              ' continue as long as there are no more 1's
                         ' "Run home, Jack!"
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 
 '------------------------------------------------------------------------------
 
@@ -621,7 +628,7 @@ fast_div                ' tos = tos / data
                         shr     div_flags, #1   wc,wz
               if_c      mov     tos, data               ' user wanted the remainder, not the quotient
                         negnz   tos, tos                ' need to invert the result
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -645,7 +652,6 @@ zpu_im_first            wrlong	tos, ptrb--
 
 '------------------------------------------------------------------------------
 ' Main ZPU fetch and execute loop
-done_and_inc_pc
 nexti
 			getptr	pb
 			rfbyte	pa			'Some opcodes contain address offsets
@@ -657,10 +663,6 @@ nexti
 exec_non_im
 			rdlut	temp, pa
                         jmp     temp                    'No # here we are jumping through temp.
-
-done_new_pc
-			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
-			jmp	#nexti
 
 '------------------------------------------------------------------------------
 
@@ -739,7 +741,9 @@ mboxdat                 mov     mboxdat, temp        'Pointer to second long of 
 			add	address, #1
 			djnz	temp, #.lp2
 
-                        jmp     #done_new_pc
+			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
+			jmp	#nexti
+
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -784,7 +788,7 @@ syscall_external_handler
               if_nz     jmp     #.wait
                         rdlong  ptrb, sp_addr
 			add	ptrb, zpu_memory_addr
-                        jmp     #done_and_inc_pc
+                        jmp     #nexti
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
