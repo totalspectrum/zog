@@ -45,5 +45,10 @@ fftbench: 592482 us
 
 with rdfast plus miscellaneous P2 optimizations
 fibo(8):   81456 cycles
-xxtea:    338584 cycles
+xxtea:    281856 cycles
 fftbench: 490496 us
+
+with opcode table in LUT
+fibo(8):   69255 cycles
+xxtea:    338584 cycles
+fftbench: 409846 us

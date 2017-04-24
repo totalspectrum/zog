@@ -653,8 +653,7 @@ fixup         if_c      jmp     which_im           'No # here jumping through te
                         mov     which_im, #zpu_im_first 'Self modifying code at which_im selects, first or subsequent IM.
                         mov     address, data           'Some opcodes contains address offsets.
 
-                        add     data, dispatch_tab_addr
-                        rdbyte  temp, data
+			rdlut	temp, data
                         jmp     temp                    'No # here we are jumping through temp.
 
 done_new_pc
@@ -722,6 +721,23 @@ mboxdat                 mov     mboxdat, temp        'Pointer to second long of 
 #endif
 			add	ptrb, zpu_memory_addr
 			add	pc, zpu_memory_addr
+
+			' set up dispatch table in LUT
+			mov	ptra, dispatch_tab_addr
+			mov	temp, #$80
+			mov	address, #0
+.lp1			rdbyte	data, ptra++
+			wrlut	data, address
+			add	address, #1
+			djnz	temp, #.lp1
+
+			' fill the rest of the table with run_zpu_im
+			mov	data, #zpu_im_first
+			mov	temp, #$80
+.lp2			wrlut	data, address
+			add	address, #1
+			djnz	temp, #.lp2
+
                         jmp     #done_new_pc
 '------------------------------------------------------------------------------
 
@@ -783,7 +799,7 @@ zpu_hub_start           long $10000000  'Start of HUB access window in ZPU memor
 zpu_cog_start           long $10008000  'Start of COG access window in ZPU memory space
 zpu_io_start            long $10008800  'Start of IO access window
 '------------------------------------------------------------------------------
-                        fit     $1F0
+                        fit     $1C0
 '------------------------------------------------------------------------------
 ' The instruction dispatch look up table (in HUB)
 dispatch_table
