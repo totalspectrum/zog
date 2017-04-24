@@ -629,15 +629,22 @@ fast_div                ' tos = tos / data
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
-zpu_im_next             shl     tos, #7
-                        or      tos, data
-                        jmp     #done_and_inc_pc
-
 zpu_im_first            wrlong	tos, ptrb--
                         mov     tos, data
                         shl     tos, #(32 - 7)          'Sign extend
                         sar     tos, #(32 - 7)
-                        mov    which_im, #zpu_im_next  'N.B. Drops through to done_and_inc_pc
+
+			'' fetch next byte and see if it is
+			'' another im
+.imloop
+			add	pc, #1
+			rfbyte	data
+			cmpsub	data, #$80 wc	' remove the 80 if it is present
+	if_nc		jmp	#exec_non_im
+			shl	tos, #7
+			or	tos, data
+			jmp	#.imloop
+
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -648,9 +655,8 @@ nexti
 #ifdef SINGLE_STEP
                         call    #break
 #endif
-                        cmpsub  data, #$80 wc           'Check for IM instruction. This saves table lookup
-fixup         if_c      jmp     which_im           'No # here jumping through temp
-                        mov     which_im, #zpu_im_first 'Self modifying code at which_im selects, first or subsequent IM.
+
+exec_non_im
                         mov     address, data           'Some opcodes contains address offsets.
 
 			rdlut	temp, data
@@ -660,7 +666,6 @@ done_new_pc
 			rdfast	zero, pc
 			jmp	#nexti
 
-which_im		long	0
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------

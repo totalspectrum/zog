@@ -52,3 +52,8 @@ with opcode table in LUT
 fibo(8):   69255 cycles
 xxtea:    338584 cycles
 fftbench: 409846 us
+
+streamlined lookup
+fibo(8):   63891 cycles
+xxtea:    252660 cycles
+fftbench: 363208 us
