@@ -62,3 +62,8 @@ more _ret_ optimization
 fibo(8):   60535 cycles
 xxtea:    238576 cycles
 fftbench: 344773 us
+
+move to pa/pb in prep for xbyte
+fibo(8):   59871 cycles
+xxtea:    238348 cycles
+fftbench: 343680 us
