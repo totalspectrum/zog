@@ -54,6 +54,6 @@ xxtea:    338584 cycles
 fftbench: 409846 us
 
 streamlined lookup
-fibo(8):   63891 cycles
-xxtea:    252660 cycles
-fftbench: 363208 us
+fibo(8):   61075 cycles
+xxtea:    239480 cycles
+fftbench: 346368 us

@@ -630,7 +630,7 @@ fast_div                ' tos = tos / data
 
 '------------------------------------------------------------------------------
 zpu_im_first            wrlong	tos, ptrb--
-                        mov     tos, data
+                        mov     tos, address
                         shl     tos, #(32 - 7)          'Sign extend
                         sar     tos, #(32 - 7)
 
@@ -638,11 +638,11 @@ zpu_im_first            wrlong	tos, ptrb--
 			'' another im
 .imloop
 			add	pc, #1
-			rfbyte	data
-			cmpsub	data, #$80 wc	' remove the 80 if it is present
+			rfbyte	address
+			cmpsub	address, #$80 wc	' remove the 80 if it is present
 	if_nc		jmp	#exec_non_im
 			shl	tos, #7
-			or	tos, data
+			or	tos, address
 			jmp	#.imloop
 
 '------------------------------------------------------------------------------
@@ -651,15 +651,13 @@ zpu_im_first            wrlong	tos, ptrb--
 ' Main ZPU fetch and execute loop
 done_and_inc_pc         add     pc, #1
 nexti
-			rfbyte data
+			rfbyte address			'Some opcodes contain address offsets
 #ifdef SINGLE_STEP
                         call    #break
 #endif
 
 exec_non_im
-                        mov     address, data           'Some opcodes contains address offsets.
-
-			rdlut	temp, data
+			rdlut	temp, address
                         jmp     temp                    'No # here we are jumping through temp.
 
 done_new_pc
