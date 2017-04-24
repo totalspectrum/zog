@@ -19,6 +19,7 @@
 '*          Propeller discussion forum.                                        *
 '*                                                                             *
 '* Author:  Michael Rychlik                                                    *
+'* P2 Port: Eric Smith                                                         *
 '*                                                                             *
 '*******************************************************************************
 '
@@ -215,7 +216,7 @@ DAT
                         org     0
 enter                   jmp     #init
 '------------------------------------------------------------------------------
-'Opcode handlers. This section MUST fit in 256 LONGS.
+'Opcode handlers.
 
 zpu_breakpoint          call    #break
                         jmp     #done_and_inc_pc
@@ -239,8 +240,7 @@ zpu_loadsp_hi           ' this will fall through if we're saving space
                         shl     address, #2
                         add     address, ptrb
                         wrlong	tos, ptrb--
-                        rdlong	data, address
-                        mov     tos, data
+                        rdlong	tos, address
                         jmp     #done_and_inc_pc
 #endif
 zpu_loadsp              and     address, #$1F
@@ -248,8 +248,7 @@ zpu_loadsp              and     address, #$1F
                         shl     address, #2
                         add     address, ptrb
                         wrlong	tos, ptrb--
-                        rdlong	data, address
-                        mov     tos, data
+                        rdlong	tos, address
                         jmp     #done_and_inc_pc
 
 zpu_storesp_tos         rdlong	tos, ++ptrb wz
@@ -260,8 +259,7 @@ zpu_storesp_hi          ' this will fall through if we're saving space
                         and     address, #$0F           'bit 4 was 1...Trust me, you need this.
                         shl     address, #2
                         add     address, ptrb
-                        mov     data, tos
-			wrlong	data, address
+			wrlong	tos, address
                         rdlong	tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 #endif
@@ -269,8 +267,7 @@ zpu_storesp             and     address, #$1F
                         xor     address, #$10           'Trust me, you need this.
                         shl     address, #2
                         add     address, ptrb
-                        mov     data, tos
-			wrlong	data, address
+			wrlong	tos, address
                         rdlong	tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 
@@ -563,15 +560,14 @@ read_word
 
                         mov     memp, address
                         add     memp, zpu_memory_addr
-                        rdword  data, memp
-read_word_ret           ret
+         _ret_          rdword  data, memp
 
 'Write a WORD from "data" to ZPU memory at "address"
 write_word
                         mov     memp, address
                         add     memp, zpu_memory_addr
-                        wrword  data, memp
-write_word_ret          ret
+        _ret_           wrword  data, memp
+
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -648,7 +644,7 @@ zpu_im_first            wrlong	tos, ptrb--
 ' Main ZPU fetch and execute loop
 done_and_inc_pc         add     pc, #1
 nexti
-                        rdbyte  data, ptra++
+			rfbyte data
 #ifdef SINGLE_STEP
                         call    #break
 #endif
@@ -662,7 +658,7 @@ fixup         if_c      jmp     which_im           'No # here jumping through te
                         jmp     temp                    'No # here we are jumping through temp.
 
 done_new_pc
-			mov	ptra, pc
+			rdfast	zero, pc
 			jmp	#nexti
 
 which_im		long	0
@@ -738,7 +734,7 @@ break
 			sub	memp, zpu_memory_addr
                         wrlong  memp, sp_addr
                         wrlong  tos, tos_addr
-                        wrlong  which_im, dm_addr
+                        wrlong  data, dm_addr
                         mov     temp, #io_cmd_break     'Set I/O command to BREAK
                         wrlong  temp, io_command_addr
 .wait                   rdlong  temp, io_command_addr wz
@@ -776,6 +772,7 @@ syscall_external_handler
 
 '------------------------------------------------------------------------------
 ' Big constants
+zero			long 0
 minus_one               long $FFFFFFFF
 minus_two               long $FFFFFFFE
 word_mask               long $0000FFFF

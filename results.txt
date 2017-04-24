@@ -42,3 +42,8 @@ after pc changed to be zpu memory based
 fibo(8):   97452 cycles
 xxtea:    414380 cycles
 fftbench: 592482 us
+
+with rdfast plus miscellaneous P2 optimizations
+fibo(8):   81456 cycles
+xxtea:    338584 cycles
+fftbench: 490496 us

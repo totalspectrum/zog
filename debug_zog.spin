@@ -147,9 +147,9 @@ DAT                     org 0
 zpu_memory              byte ' Force zpu_memory to be BYTE type.
 #ifdef USE_HUB_MEMORY
 'zpu_image               file "test.bin"
-zpu_image               file "fibo.bin"
+'zpu_image               file "fibo.bin"
 'zpu_image               file "xxtea.bin"
-'zpu_image               file "fftbench.bin"
+zpu_image               file "fftbench.bin"
 padding                 byte 0[(zpu_memory_size) - (@padding - @zpu_memory)]
 zpu_memory_end
                         fit (zpu_memory_size / 4)
@@ -794,6 +794,9 @@ PRI print_regs | i, p, op
   ser.tx($20)
   ser.str(string("0X"))
   ser.hex(zog_mbox_tos, 8)
+  ser.tx($20)
+  ser.str(string("0X"))
+  ser.hex(zog_mbox_dm, 8)
   crlf
 
   case op
