@@ -407,16 +407,14 @@ zpu_mult16x16           rdlong	data, ++ptrb wz
 
 zpu_eqbranch            rdlong	data, ++ptrb wz
               if_z      add     pb, tos
-	      if_nz	add	pb, #1
+	      if_z	rdfast	zero, pb		' establish new pc
                         rdlong	tos, ++ptrb
-			rdfast	zero, pb		' establish new pc
                         jmp     #nexti
 
 zpu_neqbranch           rdlong	data, ++ptrb wz
               if_nz     add     pb, tos
-	      if_z	add	pb, #1
+	      if_nz	rdfast	zero, pb		' establish new pc
                         rdlong	tos, ++ptrb
-			rdfast	zero, pb		' establish new pc
                         jmp     #nexti
 
 zpu_mult                rdlong	data, ++ptrb wz
