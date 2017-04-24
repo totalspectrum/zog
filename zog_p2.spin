@@ -276,7 +276,7 @@ zpu_config              mov     cpu, tos
                         jmp     #done_and_inc_pc
 
 zpu_pushpc              wrlong	tos, ptrb--
-                        mov     tos, pc
+                        mov     tos, pb
 			sub	tos, zpu_memory_addr
                         jmp     #done_and_inc_pc
 
@@ -303,12 +303,12 @@ zpu_store               rdlong	data, ++ptrb wz
                         rdlong  tos, ++ptrb wz
                         jmp     #done_and_inc_pc
 
-zpu_poppc               mov     pc, tos
-			add	pc, zpu_memory_addr
+zpu_poppc               mov     pb, tos
+			add	pb, zpu_memory_addr
                         rdlong	tos, ++ptrb wz
                         jmp     #done_new_pc
 
-zpu_poppcrel            add     pc, tos
+zpu_poppcrel            add     pb, tos
 			rdlong	tos, ++ptrb wz
                         jmp     #done_new_pc
 
@@ -404,14 +404,14 @@ zpu_mult16x16           rdlong	data, ++ptrb wz
                         jmp     #fast_mul
 
 zpu_eqbranch            rdlong	data, ++ptrb wz
-              if_z      add     pc, tos
-	      if_nz	add	pc, #1
+              if_z      add     pb, tos
+	      if_nz	add	pb, #1
                         rdlong	tos, ++ptrb
                         jmp     #done_new_pc
 
 zpu_neqbranch           rdlong	data, ++ptrb wz
-              if_nz     add     pc, tos
-	      if_z	add	pc, #1
+              if_nz     add     pb, tos
+	      if_z	add	pb, #1
                         rdlong	tos, ++ptrb
                         jmp     #done_new_pc
 
@@ -444,18 +444,18 @@ zpu_ashiftright         rdlong	data, ++ptrb wz
                         jmp     #done_and_inc_pc
 
 zpu_call                mov     temp, tos
-                        mov     tos, pc
+                        mov     tos, pb
                         add     tos, #1
 			sub	tos, zpu_memory_addr
-                        mov     pc, temp
-			add	pc, zpu_memory_addr
+                        mov     pb, temp
+			add	pb, zpu_memory_addr
                         jmp     #done_new_pc
 
 zpu_callpcrel           mov     temp, tos
-                        mov     tos, pc
+                        mov     tos, pb
                         add     tos, #1
 			sub	tos, zpu_memory_addr
-                        add     pc, temp
+                        add     pb, temp
                         jmp     #done_new_pc
 
 zpu_eq                  rdlong	data, ++ptrb
@@ -633,7 +633,6 @@ zpu_im_first            wrlong	tos, ptrb--
 			'' fetch next byte and see if it is
 			'' another im
 .imloop
-			add	pc, #1
 			getptr	pb
 			rfbyte	pa
 			cmpsub	pa, #$80 wc	' remove the 80 if it is present
@@ -646,7 +645,7 @@ zpu_im_first            wrlong	tos, ptrb--
 
 '------------------------------------------------------------------------------
 ' Main ZPU fetch and execute loop
-done_and_inc_pc         add     pc, #1
+done_and_inc_pc
 nexti
 			getptr	pb
 			rfbyte	pa			'Some opcodes contain address offsets
@@ -660,7 +659,7 @@ exec_non_im
                         jmp     temp                    'No # here we are jumping through temp.
 
 done_new_pc
-			rdfast	zero, pc		' should be rdfast #0,pc but fastspin has a bug
+			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
 			jmp	#nexti
 
 '------------------------------------------------------------------------------
@@ -677,7 +676,7 @@ zpu_memory_addr         rdlong  zpu_memory_addr, address 'HUB address of the ZPU
 memp                    add     address, #4              'Temporary pointer into ZPU memory space
 zpu_memory_sz           rdlong  zpu_memory_sz, address   'Size of ZPU memory area in bytes
 temp                    add     address, #4          'For temp operands etc
-pc                      rdlong  pc, address          'ZPU Program Counter
+                        rdlong  pb, address          'ZPU Program Counter
 instruction             add     address, #4          'Opcode being executed.
                         rdlong  ptrb, address          'ZPU Stack Pointer
 tos                     add     address, #4          'Top Of Stack
@@ -722,7 +721,7 @@ mboxcmd                 add     temp, #8             'Pointer to first long of V
 mboxdat                 mov     mboxdat, temp        'Pointer to second long of VMCOG mailbox (+4 offset)
 #endif
 			add	ptrb, zpu_memory_addr
-			add	pc, zpu_memory_addr
+			add	pb, zpu_memory_addr
 
 			' set up dispatch table in LUT
 			mov	ptra, dispatch_tab_addr
@@ -745,7 +744,7 @@ mboxdat                 mov     mboxdat, temp        'Pointer to second long of 
 
 '------------------------------------------------------------------------------
 break
-			mov	memp, pc
+			mov	memp, pb
 			sub	memp, zpu_memory_addr
 	                wrlong  memp, pc_addr             'Dump registers to HUB.
 			mov	memp, ptrb
