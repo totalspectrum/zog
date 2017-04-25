@@ -307,49 +307,41 @@ zpu_sub                 rdlong	data, ++ptrb wz
 zpu_pushsp              wrlong	tos, ptrb--
                         mov     tos, ptrb
                         add     tos, #4
-			sub	tos, zpu_memory_addr
-			ret
+	_ret_		sub	tos, zpu_memory_addr
 
 zpu_popsp               mov     ptrb, tos
 			add	ptrb, zpu_memory_addr
-			rdlong	tos, ptrb
-			ret
+	_ret_		rdlong	tos, ptrb
 
 zpu_nop                 ret
 
 zpu_and                 rdlong	data, ++ptrb wz
-                        and     tos, data
-			ret
+        _ret_           and     tos, data
 
 zpu_xor                 rdlong	data, ++ptrb wz
-                        xor     tos, data
-			ret
+        _ret_           xor     tos, data
 
 zpu_loadb
 
                         mov     memp, tos
                         add     memp, zpu_memory_addr
-                        rdbyte  tos, memp
-			ret
+        _ret_           rdbyte  tos, memp
 
-zpu_storeb              rdlong	data, ++ptrb wz
-
+zpu_storeb
+			rdlong	data, ++ptrb wz
                         mov     memp, tos
                         add     memp, zpu_memory_addr
                         wrbyte  data, memp
-			rdlong	tos, ++ptrb wz
-			ret
+	_ret_		rdlong	tos, ++ptrb wz
 
 zpu_loadh               mov     address, tos
                         call    #read_word
-                        mov     tos, data
-			ret
+        _ret_           mov     tos, data
 
 zpu_storeh              rdlong	data, ++ptrb wz
                         mov     address, tos
                         call    #write_word
-                        rdlong	tos, ++ptrb wz
-			ret
+        _ret_           rdlong	tos, ++ptrb wz
 
 zpu_lessthan            rdlong	data, ++ptrb
                         cmps    tos, data wz,wc
@@ -386,14 +378,12 @@ zpu_mult16x16           rdlong	data, ++ptrb wz
 zpu_eqbranch            rdlong	data, ++ptrb wz
               if_z      add     pb, tos
 	      if_z	rdfast	zero, pb		' establish new pc
-                        rdlong	tos, ++ptrb
-			ret
+              _ret_     rdlong	tos, ++ptrb
 
 zpu_neqbranch           rdlong	data, ++ptrb wz
               if_nz     add     pb, tos
 	      if_nz	rdfast	zero, pb		' establish new pc
-                        rdlong	tos, ++ptrb
-			ret
+              _ret_     rdlong	tos, ++ptrb
 
 zpu_mult                rdlong	data, ++ptrb wz
                         jmp     #fast_mul
@@ -410,18 +400,15 @@ zpu_mod                 rdlong	data, ++ptrb wz
 
 zpu_lshiftright         rdlong	data, ++ptrb wz
                         shr     data, tos
-                        mov     tos, data
-			ret
+         _ret_          mov     tos, data
 
 zpu_ashiftleft          rdlong	data, ++ptrb wz
                         shl     data, tos
-                        mov     tos, data
-			ret
+        _ret_           mov     tos, data
 
 zpu_ashiftright         rdlong	data, ++ptrb wz
                         sar     data, tos
-                        mov     tos, data
-			ret
+        _ret_           mov     tos, data
 
 zpu_call                mov     temp, tos
                         mov     tos, pb
@@ -429,16 +416,14 @@ zpu_call                mov     temp, tos
 			sub	tos, zpu_memory_addr
                         mov     pb, temp
 			add	pb, zpu_memory_addr
-			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
-			ret
+	_ret_		rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
 
 zpu_callpcrel           mov     temp, tos
                         mov     tos, pb
                         add     tos, #1
 			sub	tos, zpu_memory_addr
                         add     pb, temp
-			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
-			ret
+	_ret_		rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
 
 zpu_eq                  rdlong	data, ++ptrb
                         cmp     tos, data wz
