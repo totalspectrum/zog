@@ -67,3 +67,8 @@ move to pa/pb in prep for xbyte
 fibo(8):   59871 cycles
 xxtea:    238348 cycles
 fftbench: 343680 us
+
+xbyte
+fibo(8):   51559? cycles
+xxtea:    238348?? cycles
+fftbench: 284058? us
