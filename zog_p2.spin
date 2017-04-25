@@ -135,7 +135,7 @@
 '
 '
 '#define SINGLE_STEP
-'#define USE_XBYTE
+#define USE_XBYTE
 
 ' comment these out to save a bit of space
 #define SPEED_ADD_LOAD_STORE_SP
@@ -472,16 +472,19 @@ read_cog_long           cmp     address, zpu_io_start wc  'Check for COG memory 
      _ret_              mov     data, 0-0
 
 read_io_long            cmp     address, timer_address wz 'Check for timer read
-              if_z      getct   data
-              if_z      ret
-                                                      'Must be other I/O address
+	      if_nz	jmp	#read_other
+                        getct   data
+                        ret
+			
+read_other                                                      'Must be other I/O address
                         wrlong  address, io_port_addr 'Set port address
                         mov     temp, #io_cmd_in      'Set I/O command to IN
                         wrlong  temp, io_command_addr
 .wait                   rdlong  temp, io_command_addr wz 'Wait for command to be completed
               if_nz     jmp     #.wait
-        _ret_           rdlong  data, io_data_addr    'Get the port data
-
+                        rdlong  data, io_data_addr    'Get the port data
+			ret
+			
 'Write a LONG from "data" to ZPU memory at "address"
 write_long              cmp     address, zpu_hub_start wc 'Check for normal memory access
               if_nc     jmp     #write_hub_long
@@ -495,8 +498,7 @@ write_hub_long          cmp     address, zpu_cog_start wc 'Check for HUB memory 
               if_nc     jmp     #write_cog_long
 
                         sub     address, zpu_hub_start
-                        wrlong  data, address
-			ret
+    _ret_               wrlong  data, address
 
 write_cog_long          cmp     address, zpu_io_start wc
               if_nc     jmp     #write_io_long
@@ -504,7 +506,7 @@ write_cog_long          cmp     address, zpu_io_start wc
                         shr     address, #2
                         altd    address, #0
     _ret_               mov     0-0, data
-
+   
 
 write_io_long           wrlong  address, io_port_addr 'Set port address
                         wrlong  data, io_data_addr    'Set port data
@@ -703,14 +705,16 @@ mboxdat                 mov     mboxdat, temp        'Pointer to second long of 
 			add	address, #1
 			djnz	temp, #.lp2
 
-			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
 
 #ifdef USE_XBYTE
+restart_xbyte
+			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
 			'' start up the xbyte loop
-.again			push	 #$1f8
+			push	 #$1f8
 	_ret_		setq	 #$0		' 256 long execf table
-			jmp	 #.again
+			jmp	 #restart_xbyte
 #else
+			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
 			jmp	#next_instruction
 #endif
 '------------------------------------------------------------------------------
@@ -757,8 +761,6 @@ syscall_external_handler
               if_nz     jmp     #.wait
                         rdlong  ptrb, sp_addr
 			add	ptrb, zpu_memory_addr
-			rdlong	pb, pc_addr
-			rdfast	zero, pb
 			ret
 '------------------------------------------------------------------------------
 

@@ -14,7 +14,7 @@ OC=$(TOOLPATH)zpu-elf-objcopy -O binary
 #OC=$(TOOLPATH)zpu-elf-objcopy -O srec --srec-forceS3
 
 # Compiler flags. Compile only, debug info, all warnings, optimize for size
-CFLAGS=-c -g -Wall -Os
+CFLAGS=-c -g -Os
 
 # The ZPU platform Phi board (phi) or Able board (able)
 ZPUPLATFORM=-phi
@@ -23,7 +23,7 @@ ZPUPLATFORM=-phi
 LDFLAGS=$(ZPUPLATFORM) -Wl,--verbose -Wl,--relax -Wl,--gc-sections
 
 # Source files, add more here if you have
-SOURCES=fibo.c 
+SOURCES=fibo.c simple_printf.c
 
 # Create a list of object file names from source file names
 OBJECTS=$(SOURCES:.c=.o)

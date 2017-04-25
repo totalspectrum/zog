@@ -146,10 +146,10 @@ CON
 DAT                     org 0
 zpu_memory              byte ' Force zpu_memory to be BYTE type.
 #ifdef USE_HUB_MEMORY
-'zpu_image               file "test.bin"
-zpu_image               file "fibo.bin"
+'zpu_image               file "dhry.bin"
+'zpu_image               file "fibo.bin"
 'zpu_image               file "xxtea.bin"
-'zpu_image               file "fftbench.bin"
+zpu_image               file "fftbench.bin"
 padding                 byte 0[(zpu_memory_size) - (@padding - @zpu_memory)]
 zpu_memory_end
                         fit (zpu_memory_size / 4)
@@ -175,9 +175,12 @@ zpu_memory_size = (1 << 25)                              'The size of ZPU memory
 zpu_memory_size = (64 * 1024)                            'The size of ZPU memory area
 #endif
 #ifdef USE_HUB_MEMORY
+#ifdef __P2__
+zpu_memory_size = (24 * 1024)                            'The size of ZPU memory area
+#else
 zpu_memory_size = (20 * 1024)                            'The size of ZPU memory area
 #endif
-
+#endif
 ' These are the SPIN byte codes for mul and div
 SPIN_MUL_OP     = $F4  '(multiply, return lower 32 bits)
 SPIN_DIV_OP     = $F6  '(divide, return quotient 32 bits)
@@ -585,7 +588,9 @@ PRI on_input
 PRI on_output
   case zog_mbox_port
     UART_TX_PORT:
+      'ser.tx("[")
       ser.tx(zog_mbox_data)
+      'ser.tx("]")
     other:
       ser.str(string("Write to unknown output port "))
       ser.hex(zog_mbox_port, 8)

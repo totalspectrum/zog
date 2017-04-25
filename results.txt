@@ -68,7 +68,10 @@ fibo(8):   59871 cycles
 xxtea:    238348 cycles
 fftbench: 343680 us
 
-xbyte
-fibo(8):   51559? cycles
-xxtea:    238348?? cycles
-fftbench: 284058? us
+pre-xbyte:
+
+xbyte:
+fibo(8):   49143 cycles
+xxtea:    186556 cycles
+fftbench: 268929 us
+dhry:       1888/sec

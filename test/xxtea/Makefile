@@ -23,7 +23,7 @@ ZPUPLATFORM=-phi
 LDFLAGS=$(ZPUPLATFORM) -Wl,--relax -Wl,--gc-sections
 
 # Source files, add more here if you have
-SOURCES=xxtea.c 
+SOURCES=xxtea.c simple_printf.c
 
 # Create a list of object file names from source file names
 OBJECTS=$(SOURCES:.c=.o)
