@@ -135,11 +135,12 @@
 '
 '
 '#define SINGLE_STEP
+
+' define USE_XBYTE to use P2 xbyte execution mechanism
 #define USE_XBYTE
 
-' comment these out to save a bit of space
-#define SPEED_ADD_LOAD_STORE_SP
-#define USE_FASTER_MULT
+' define USE_CORDIC_MULDIV to use P2 qmul and qdiv
+#define USE_CORDIC_MULDIV
 
 CON
 ' These are the SPIN byte codes for mul and div
@@ -534,8 +535,13 @@ write_word
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
-fast_mul                ' account for sign
-#ifdef USE_FASTER_MULT
+fast_mul
+#ifdef USE_CORDIC_MULDIV
+			setq	#0
+			qmul	tos, data
+	_ret_		getqx	tos
+#else
+			' speed up by counting via smaller item
                         abs     tos, tos        wc
                         negc    data, data
                         abs     data, data      wc
@@ -543,12 +549,9 @@ fast_mul                ' account for sign
                         mov     t2, tos
                         max     t2, data
                         min     data, tos
-                        ' corrct the sign of the adder
+                        ' correct the sign of the adder
                         negc    data, data
-#else
-                        abs     t2, tos         wc
-                        negc    data, data
-#endif
+
                         ' my accumulator
                         mov     tos, #0
                         ' do the work
@@ -558,6 +561,7 @@ fast_mul                ' account for sign
         if_nz           jmp     #.mul_loop              ' continue as long as there are no more 1's
                         ' "Run home, Jack!"
 			ret
+#endif
 
 '------------------------------------------------------------------------------
 
@@ -565,6 +569,27 @@ fast_mul                ' account for sign
 {{==    div_flags: xxxx_invert result_store remainder   ==}}
 {{==    NOTE: Caller must not allow data == 0!!!!       ==}}
 fast_div                ' tos = tos / data
+
+#ifdef USE_CORDIC_MULDIV
+			abs	tos, tos	wc
+			muxc	t2,#%11		' store sign of tos
+			abs	data, data	wc,wz
+	if_c		xor	t2,#%10		' store sign of data
+			setq	#0
+			qdiv	tos, data
+			test	div_flags, #1 wz
+	if_nz		jmp	#do_remainder
+			getqx	tos		' get quotient
+			test	t2,#%10 wc	' restore sign
+	_ret_		negc	tos,tos
+
+do_remainder
+			getqy	tos		' get remainder
+			test	t2, #%1 wc
+	_ret_		negc	tos,tos
+
+
+#else
                         ' handle the signs, and check for a 0 divisor
                         and     div_flags, #1   wz      ' keep only the 0 bit, and remember if it's a 0
                         abs     t1, data        wc
@@ -589,6 +614,8 @@ fast_div                ' tos = tos / data
               if_c      mov     tos, data               ' user wanted the remainder, not the quotient
                         negnz   tos, tos                ' need to invert the result
                         ret
+#endif
+
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------

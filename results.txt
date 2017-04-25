@@ -68,10 +68,14 @@ fibo(8):   59871 cycles
 xxtea:    238348 cycles
 fftbench: 343680 us
 
-pre-xbyte:
+pre-xbyte, cordic mul:
+dhry:       1527/sec
+fibo(8):   60145 cycles
+xxtea:    241064 cycles
+fftbench: 346471 us
 
-xbyte:
+xbyte, cordic mul:
+dhry:       1905/sec
 fibo(8):   49143 cycles
-xxtea:    186556 cycles
-fftbench: 268929 us
-dhry:       1888/sec
+xxtea:    188200 cycles
+fftbench: 270176 us
