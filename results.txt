@@ -74,8 +74,14 @@ fibo(8):   60145 cycles
 xxtea:    241064 cycles
 fftbench: 346471 us
 
-xbyte, cordic mul:
+xbyte, cordic muldiv:
 dhry:       1905/sec
 fibo(8):   49143 cycles
 xxtea:    188200 cycles
 fftbench: 270176 us
+
+xbyte, software muldiv:
+dhry:       1888/sec
+fibo(8):   49143 cycles
+xxtea:    186556 cycles
+fftbench: 268644 us

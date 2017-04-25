@@ -122,7 +122,11 @@ main ()
     printf ("\n");
   }
 #ifdef GETMS
+# ifdef COUNT
+  Number_Of_Runs = COUNT;
+# else
   Number_Of_Runs = 10000;
+#endif
 #else
   printf ("Please give the number of runs through the benchmark: ");
   {

@@ -140,7 +140,7 @@
 #define USE_XBYTE
 
 ' define USE_CORDIC_MULDIV to use P2 qmul and qdiv
-#define USE_CORDIC_MULDIV
+'#define USE_CORDIC_MULDIV
 
 CON
 ' These are the SPIN byte codes for mul and div
@@ -188,10 +188,6 @@ READVML       = 132 'Read a long from VMcog
 WRITEVMB      = 133 'Write a byte to VMcog
 WRITEVMW      = 134 'Write a word to VMcog
 WRITEVML      = 135 'Write a long to VMcog
-
-#ifdef USE_JCACHED_MEMORY
-OBJ cache : "SdramCache"             
-#endif
 
 VAR
   long cog
@@ -696,23 +692,6 @@ dm_addr                 mov     dm_addr, temp        'HUB address of decode mask
                         add     temp, #4             'Flag for the IM instruction
 debug_addr              mov     debug_addr, temp     'HUB address of debug register
 
-#ifdef USE_JCACHED_MEMORY
-' Initialization and Variables used to support CACHE interface
-cacheaddr               add     address, #4          'cache block address
-mboxptr                 rdlong  temp, address        '8th par item is address of VMCog mailbox
-addr                    mov     mboxcmd, temp
-mboxcmd                 add     temp, #4             'next long is data for cached memory
-mboxdat                 mov     mboxdat, temp
-#endif
-
-#ifdef USE_VIRTUAL_MEMORY
-' Variables used to support VM readbyte/writebyte
-                        add     address, #4
-                        rdlong  temp, address        '8th par item is address of VMCog mailbox
-addr                    mov     mboxcmd, temp        'Address we want to read, can be PC or whatever
-mboxcmd                 add     temp, #8             'Pointer to first long of VMCOG mailbox (+0 offset)
-mboxdat                 mov     mboxdat, temp        'Pointer to second long of VMCOG mailbox (+4 offset)
-#endif
 			add	ptrb, zpu_memory_addr
 			add	pb, zpu_memory_addr
 
