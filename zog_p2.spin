@@ -215,7 +215,19 @@ zpu_breakpoint          jmp    #break
 
 zpu_addsp_0
 	_ret_		add     tos, tos                'Special case for offset = 0
-
+zpu_addsp_4
+			rdlong	data, ptrb[1]
+	_ret_		add	tos, data
+zpu_addsp_8
+			rdlong	data, ptrb[2]
+	_ret_		add	tos, data	
+zpu_addsp_12
+			rdlong	data, ptrb[3]
+	_ret_		add	tos, data
+zpu_addsp_16
+			rdlong	data, ptrb[4]
+	_ret_		add	tos, data
+	
 zpu_addsp               and     pa, #$0F
                         shl     pa, #2
                         add     pa, ptrb
@@ -225,7 +237,7 @@ zpu_addsp               and     pa, #$0F
 zpu_loadsp_tos
 	_ret_		wrlong	tos, ptrb--
 
-zpu_loadsp_hi           ' this will fall through if we're saving space
+zpu_loadsp_hi
                         and     pa, #$0F           'bit 4 was 1...Trust me, you need this.
                         shl     pa, #2
                         add     pa, ptrb
@@ -240,7 +252,7 @@ zpu_loadsp              and     pa, #$1F
         _ret_           rdlong	tos, pa
 
 zpu_storesp_0
-	_ret_		rdlong	tos, ++ptrb wz
+	_ret_		rdlong	tos, ++ptrb
 
 zpu_storesp_4
 			wrlong	tos,ptrb[1]
@@ -252,6 +264,14 @@ zpu_storesp_8
 
 zpu_storesp_12
 			wrlong	tos,ptrb[3]
+	_ret_		rdlong	tos,++ptrb
+	
+zpu_storesp_16
+			wrlong	tos,ptrb[4]
+	_ret_		rdlong	tos,++ptrb
+	
+zpu_storesp_20
+			wrlong	tos,ptrb[5]
 	_ret_		rdlong	tos,++ptrb
 	
 zpu_storesp_hi
@@ -793,10 +813,10 @@ dispatch_table
 {0F}    byte  zpu_illegal
 
 {10}    byte  zpu_addsp_0
-{11}    byte  zpu_addsp
-{12}    byte  zpu_addsp
-{13}    byte  zpu_addsp
-{14}    byte  zpu_addsp
+{11}    byte  zpu_addsp_4
+{12}    byte  zpu_addsp_8
+{13}    byte  zpu_addsp_12
+{14}    byte  zpu_addsp_16
 {15}    byte  zpu_addsp
 {16}    byte  zpu_addsp
 {17}    byte  zpu_addsp
@@ -864,8 +884,8 @@ dispatch_table
 {51}    byte  zpu_storesp_4
 {52}    byte  zpu_storesp_8
 {53}    byte  zpu_storesp_12
-{54}    byte  zpu_storesp_hi
-{55}    byte  zpu_storesp_hi
+{54}    byte  zpu_storesp_16
+{55}    byte  zpu_storesp_20
 {56}    byte  zpu_storesp_hi
 {57}    byte  zpu_storesp_hi
 {58}    byte  zpu_storesp_hi
