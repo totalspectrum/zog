@@ -394,26 +394,26 @@ zpu_storeh              rdlong	data, ++ptrb wz
 zpu_lessthan            rdlong	data, ++ptrb
                         cmps    tos, data wz,wc
                         mov     tos, #0
-              if_b      mov     tos, #1
-	      		ret
+              _ret_     muxc    tos, #1
+
 
 zpu_lessthanorequal     rdlong	data, ++ptrb
-                        cmps    tos, data wz,wc
+                        cmps    data, tos wz,wc
                         mov     tos, #0
-              if_be     mov     tos, #1
-	      		ret
+              _ret_     muxnc   tos, #1		' set to 1 if !(data < tos)
+
 
 zpu_ulessthan           rdlong	data, ++ptrb
                         cmp     tos, data wz, wc
                         mov     tos, #0
-              if_b      mov     tos, #1
-	      		ret
+              _ret_     muxc    tos, #1		' set to 1 if tos < data
+
 
 zpu_ulessthanorequal    rdlong	data, ++ptrb
-                        cmp     tos, data wz, wc
+                        cmp  	data, tos wz, wc
                         mov     tos, #0
-              if_be     mov     tos, #1
-	      		ret
+              _ret_     muxnc   tos, #1		' set to 1 if ! (data < tos)
+
 
 zpu_swap                ror     tos, #16
 			ret
