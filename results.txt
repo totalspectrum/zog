@@ -19,6 +19,11 @@ zog JIT:   976817 us ->  976411 us with little endian
 zog 1.6:  1376254 us -> 1264611 us with little endian
 openspin: 1465321 us
 
+P1 dhry:
+
+zog 1.6: 436 dhrystones/sec
+zog JIT: 490 dhrystones/sec
+
 ==================================================
 P2:
 
@@ -85,3 +90,9 @@ dhry:       1888/sec
 fibo(8):   49143 cycles
 xxtea:    186556 cycles
 fftbench: 268644 us
+
+xbyte, improved read routine
+dhry:       1915/sec
+fibo(8):   48323 cycles
+xxtea:    182540 cycles
+fftbench: 262370 us

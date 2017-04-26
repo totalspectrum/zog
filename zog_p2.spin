@@ -269,9 +269,10 @@ zpu_or                  rdlong  data, ++ptrb wz
 zpu_not
 	_ret_		xor     tos, minus_one
 
-zpu_load                mov     address, tos
-                        call    #read_long
-        _ret_           mov     tos, data
+zpu_load                mov     address, tos wc
+	if_c		jmp	#read_zpu_tos	' special ZPU address emulation
+			add	address, zpu_memory_addr
+        _ret_           rdlong  tos, address
 
 zpu_pushspadd           shl     tos, #2
                         add     tos, ptrb
@@ -446,41 +447,28 @@ div_zero_error
 '------------------------------------------------------------------------------
 'ZPU memory space access routines
 
-'Read a LONG from ZPU memory at "address" into "data"
-read_long               cmp     address, zpu_hub_start wc 'Check for normal memory access
-              if_nc     jmp     #read_hub_long
+'Read a LONG from ZPU memory at "address" into "tos"
 
-                        mov     memp, address
-                        add     memp, zpu_memory_addr
-    _ret_               rdlong  data, memp
-
-
-read_hub_long           cmp     address, zpu_cog_start wc 'Check for HUB memory access
-              if_nc     jmp     #read_cog_long
-
-                        sub     address, zpu_hub_start
-             _ret_      rdlong  data, address
-
+read_zpu_tos
 read_cog_long           cmp     address, zpu_io_start wc  'Check for COG memory access
               if_nc     jmp     #read_io_long
 
                         shr     address, #2
                         alts    address, #0
-     _ret_              mov     data, 0-0
+     _ret_              mov     tos, 0-0
 
 read_io_long            cmp     address, timer_address wz 'Check for timer read
 	      if_nz	jmp	#read_other
-                        getct   data
-                        ret
-			
+              _ret_     getct   tos
+
 read_other                                                      'Must be other I/O address
                         wrlong  address, io_port_addr 'Set port address
                         mov     temp, #io_cmd_in      'Set I/O command to IN
                         wrlong  temp, io_command_addr
 .wait                   rdlong  temp, io_command_addr wz 'Wait for command to be completed
               if_nz     jmp     #.wait
-                        rdlong  data, io_data_addr    'Get the port data
-			ret
+	      _ret_     rdlong  tos, io_data_addr    'Get the port data
+
 			
 'Write a LONG from "data" to ZPU memory at "address"
 write_long              cmp     address, zpu_hub_start wc 'Check for normal memory access
