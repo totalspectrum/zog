@@ -91,8 +91,8 @@ fibo(8):   49143 cycles
 xxtea:    186556 cycles
 fftbench: 268644 us
 
-xbyte, improved read routine
-dhry:       1915/sec
-fibo(8):   48323 cycles
-xxtea:    182540 cycles
-fftbench: 262370 us
+xbyte, improved read/write routines
+dhry:       1940/sec
+fibo(8):   47787 cycles
+xxtea:    181527 cycles
+fftbench: 259942 us

@@ -278,10 +278,12 @@ zpu_pushspadd           shl     tos, #2
                         add     tos, ptrb
 	_ret_		sub	tos, zpu_memory_addr
 
-zpu_store               rdlong	data, ++ptrb wz
-                        mov     address, tos
-                        call    #write_long
-        _ret_           rdlong  tos, ++ptrb wz
+zpu_store               rdlong	data, ++ptrb
+                        mov     address, tos wc
+			rdlong	tos, ++ptrb
+	if_c		jmp	#write_long_zpu		' write special address
+			add	address, zpu_memory_addr
+	_ret_		wrlong	data, address
 
 zpu_poppc               mov     pb, tos
 			add	pb, zpu_memory_addr
@@ -471,21 +473,7 @@ read_other                                                      'Must be other I
 
 			
 'Write a LONG from "data" to ZPU memory at "address"
-write_long              cmp     address, zpu_hub_start wc 'Check for normal memory access
-              if_nc     jmp     #write_hub_long
-
-                        mov     memp, address
-                        add     memp, zpu_memory_addr
-    _ret_               wrlong  data, memp
-
-
-write_hub_long          cmp     address, zpu_cog_start wc 'Check for HUB memory access
-              if_nc     jmp     #write_cog_long
-
-                        sub     address, zpu_hub_start
-    _ret_               wrlong  data, address
-
-write_cog_long          cmp     address, zpu_io_start wc
+write_long_zpu          cmp     address, zpu_io_start wc
               if_nc     jmp     #write_io_long
 
                         shr     address, #2
