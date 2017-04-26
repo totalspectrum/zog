@@ -239,9 +239,21 @@ zpu_loadsp              and     pa, #$1F
                         wrlong	tos, ptrb--
         _ret_           rdlong	tos, pa
 
-zpu_storesp_tos
+zpu_storesp_0
 	_ret_		rdlong	tos, ++ptrb wz
 
+zpu_storesp_4
+			wrlong	tos,ptrb[1]
+	_ret_		rdlong	tos,++ptrb
+
+zpu_storesp_8
+			wrlong	tos,ptrb[2]
+	_ret_		rdlong	tos,++ptrb
+
+zpu_storesp_12
+			wrlong	tos,ptrb[3]
+	_ret_		rdlong	tos,++ptrb
+	
 zpu_storesp_hi
                         and     pa, #$0F           'bit 4 was 1...Trust me, you need this.
                         shl     pa, #2
@@ -848,10 +860,10 @@ dispatch_table
 {4E}    byte  zpu_storesp
 {4F}    byte  zpu_storesp
 
-{50}    byte  zpu_storesp_tos
-{51}    byte  zpu_storesp_hi
-{52}    byte  zpu_storesp_hi
-{53}    byte  zpu_storesp_hi
+{50}    byte  zpu_storesp_0
+{51}    byte  zpu_storesp_4
+{52}    byte  zpu_storesp_8
+{53}    byte  zpu_storesp_12
 {54}    byte  zpu_storesp_hi
 {55}    byte  zpu_storesp_hi
 {56}    byte  zpu_storesp_hi
