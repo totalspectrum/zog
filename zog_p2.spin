@@ -349,8 +349,7 @@ zpu_add                 rdlong	data, ++ptrb wz
         _ret_           add     tos, data
 
 zpu_sub                 rdlong	data, ++ptrb wz
-                        sub     data, tos
-        _ret_           mov     tos, data
+        _ret_           subr    tos, data		' tos = data - tos
 
 zpu_pushsp              wrlong	tos, ptrb--
                         mov     tos, ptrb
@@ -370,25 +369,22 @@ zpu_xor                 rdlong	data, ++ptrb wz
         _ret_           xor     tos, data
 
 zpu_loadb
-
-                        mov     memp, tos
-                        add     memp, zpu_memory_addr
-        _ret_           rdbyte  tos, memp
+                        add     tos, zpu_memory_addr
+        _ret_           rdbyte  tos, tos
 
 zpu_storeb
 			rdlong	data, ++ptrb wz
-                        mov     memp, tos
-                        add     memp, zpu_memory_addr
-                        wrbyte  data, memp
+                        add     tos, zpu_memory_addr
+                        wrbyte  data, tos
 	_ret_		rdlong	tos, ++ptrb wz
 
-zpu_loadh               mov     address, tos
-                        call    #read_word
-        _ret_           mov     tos, data
+zpu_loadh               add     tos, zpu_memory_addr
+	_ret_		rdword	tos, tos
+
 
 zpu_storeh              rdlong	data, ++ptrb wz
-                        mov     address, tos
-                        call    #write_word
+			add	tos, zpu_memory_addr
+			wrword	data, tos
         _ret_           rdlong	tos, ++ptrb wz
 
 zpu_lessthan            rdlong	data, ++ptrb
@@ -475,17 +471,16 @@ zpu_callpcrel           mov     temp, tos
 
 zpu_eq                  rdlong	data, ++ptrb
                         cmp     tos, data wz
-              if_z      mov     tos, #1
-              if_nz     mov     tos, #0
-	      		ret
+              		mov     tos, #0
+              _ret_     muxz	tos, #1
 
 zpu_neq                 rdlong	data, ++ptrb
                         sub     tos, data wz
               if_nz     mov     tos, #1
 	      		ret
 
-zpu_neg                 neg     tos, tos
-			ret
+zpu_neg
+		_ret_	neg     tos, tos
 
 zpu_syscall             jmp     #syscall
 
@@ -536,21 +531,6 @@ write_io_long           wrlong  address, io_port_addr 'Set port address
 .wait                   rdlong  temp, io_command_addr wz 'Wait for command to be completed
               if_nz     jmp     #.wait
 	      		ret
-
-
-
-'Read a WORD from ZPU memory at "address into "data"
-read_word
-
-                        mov     memp, address
-                        add     memp, zpu_memory_addr
-         _ret_          rdword  data, memp
-
-'Write a WORD from "data" to ZPU memory at "address"
-write_word
-                        mov     memp, address
-                        add     memp, zpu_memory_addr
-        _ret_           wrword  data, memp
 
 '------------------------------------------------------------------------------
 

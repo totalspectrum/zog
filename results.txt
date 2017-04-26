@@ -103,8 +103,8 @@ fibo(8):   43515 cycles
 xxtea:    177292 cycles
 fftbench: 246365 us
 
-xbyte, optimized compares
-dhry:       2066/sec
+xbyte, optimized compares, some other misc. optimizations
+dhry:       2069/sec
 fibo(8):   43515 cycles
-xxtea:    177292 cycles
-fftbench: 245597 us
+xxtea:    177288 cycles
+fftbench: 245587 us
