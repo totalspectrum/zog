@@ -96,3 +96,9 @@ dhry:       1940/sec
 fibo(8):   47787 cycles
 xxtea:    181527 cycles
 fftbench: 259942 us
+
+xbyte, inlined some loadsp/storesp/addsp
+dhry:       2066/sec
+fibo(8):   43515 cycles
+xxtea:    177292 cycles
+fftbench: 246365 us

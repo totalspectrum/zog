@@ -237,6 +237,22 @@ zpu_addsp               and     pa, #$0F
 zpu_loadsp_tos
 	_ret_		wrlong	tos, ptrb--
 
+zpu_loadsp_4
+			wrlong	tos, ptrb--
+	_ret_		rdlong	tos, ptrb[2]
+zpu_loadsp_8
+			wrlong	tos, ptrb--
+	_ret_		rdlong	tos, ptrb[3]
+zpu_loadsp_12
+			wrlong	tos, ptrb--
+	_ret_		rdlong	tos, ptrb[4]
+zpu_loadsp_16
+			wrlong	tos, ptrb--
+	_ret_		rdlong	tos, ptrb[5]
+zpu_loadsp_20
+			wrlong	tos, ptrb--
+	_ret_		rdlong	tos, ptrb[6]
+	
 zpu_loadsp_hi
                         and     pa, #$0F           'bit 4 was 1...Trust me, you need this.
                         shl     pa, #2
@@ -915,11 +931,11 @@ dispatch_table
 {6F}    byte  zpu_loadsp
 
 {70}    byte  zpu_loadsp_tos
-{71}    byte  zpu_loadsp_hi
-{72}    byte  zpu_loadsp_hi
-{73}    byte  zpu_loadsp_hi
-{74}    byte  zpu_loadsp_hi
-{75}    byte  zpu_loadsp_hi
+{71}    byte  zpu_loadsp_4
+{72}    byte  zpu_loadsp_8
+{73}    byte  zpu_loadsp_12
+{74}    byte  zpu_loadsp_16
+{75}    byte  zpu_loadsp_20
 {76}    byte  zpu_loadsp_hi
 {77}    byte  zpu_loadsp_hi
 {78}    byte  zpu_loadsp_hi
