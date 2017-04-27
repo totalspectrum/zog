@@ -114,3 +114,9 @@ dhry:       2130/sec
 fibo(8):   42439 cycles
 xxtea:    172712 cycles
 fftbench: 241653 us
+
+xbyte, start using xmask
+dhry:       2133/sec
+fibo(8):   43103 cycles
+xxtea:    169804 cycles
+fftbench: 239156 us

@@ -237,21 +237,18 @@ zpu_addsp               and     pa, #$0F
 zpu_loadsp_tos
 	_ret_		wrlong	tos, ptrb--
 
-zpu_loadsp_4
+zpu_loadsp_N
 			wrlong	tos, ptrb--
+			'' use an execf mask to select one of these
 	_ret_		rdlong	tos, ptrb[2]
-zpu_loadsp_8
-			wrlong	tos, ptrb--
 	_ret_		rdlong	tos, ptrb[3]
-zpu_loadsp_12
-			wrlong	tos, ptrb--
 	_ret_		rdlong	tos, ptrb[4]
-zpu_loadsp_16
-			wrlong	tos, ptrb--
 	_ret_		rdlong	tos, ptrb[5]
-zpu_loadsp_20
-			wrlong	tos, ptrb--
+	
 	_ret_		rdlong	tos, ptrb[6]
+	_ret_		rdlong	tos, ptrb[7]
+	_ret_		rdlong	tos, ptrb[8]
+	_ret_		rdlong	tos, ptrb[9]
 	
 zpu_loadsp_hi
                         and     pa, #$0F           'bit 4 was 1...Trust me, you need this.
@@ -270,26 +267,18 @@ zpu_loadsp              and     pa, #$1F
 zpu_storesp_0
 	_ret_		rdlong	tos, ++ptrb
 
-zpu_storesp_4
-			wrlong	tos,ptrb[1]
+zpu_storesp_N
+			'' use an EXECF mask to select just one of the wrlongs
+			wrlong	tos,ptrb[1]  	' only one
+			wrlong	tos,ptrb[2]	' only one
+			wrlong	tos,ptrb[3]	' only one
+			wrlong	tos,ptrb[4]	' only one
+			wrlong	tos,ptrb[5]  	' only one
+			wrlong	tos,ptrb[6]	' only one
+			wrlong	tos,ptrb[7]	' only one
+			wrlong	tos,ptrb[8]	' only one
 	_ret_		rdlong	tos,++ptrb
 
-zpu_storesp_8
-			wrlong	tos,ptrb[2]
-	_ret_		rdlong	tos,++ptrb
-
-zpu_storesp_12
-			wrlong	tos,ptrb[3]
-	_ret_		rdlong	tos,++ptrb
-	
-zpu_storesp_16
-			wrlong	tos,ptrb[4]
-	_ret_		rdlong	tos,++ptrb
-	
-zpu_storesp_20
-			wrlong	tos,ptrb[5]
-	_ret_		rdlong	tos,++ptrb
-	
 zpu_storesp_hi
                         and     pa, #$0F           'bit 4 was 1...Trust me, you need this.
                         shl     pa, #2
@@ -890,14 +879,14 @@ dispatch_table
 {4F}    long  zpu_storesp
 
 {50}    long  zpu_storesp_0
-{51}    long  zpu_storesp_4
-{52}    long  zpu_storesp_8
-{53}    long  zpu_storesp_12
-{54}    long  zpu_storesp_16
-{55}    long  zpu_storesp_20
-{56}    long  zpu_storesp_hi
-{57}    long  zpu_storesp_hi
-{58}    long  zpu_storesp_hi
+{51}    long  zpu_storesp_N | %0_1111_1110 << 10
+{52}    long  zpu_storesp_N | %0_1111_1101 << 10
+{53}    long  zpu_storesp_N | %0_1111_1011 << 10
+{54}    long  zpu_storesp_N | %0_1111_0111 << 10
+{55}    long  zpu_storesp_N | %0_1110_1111 << 10
+{56}    long  zpu_storesp_N | %0_1101_1111 << 10
+{57}    long  zpu_storesp_N | %0_1011_1111 << 10
+{58}    long  zpu_storesp_N | %0_0111_1111 << 10
 {59}    long  zpu_storesp_hi
 {5A}    long  zpu_storesp_hi
 {5B}    long  zpu_storesp_hi
@@ -924,14 +913,14 @@ dispatch_table
 {6F}    long  zpu_loadsp
 
 {70}    long  zpu_loadsp_tos
-{71}    long  zpu_loadsp_4
-{72}    long  zpu_loadsp_8
-{73}    long  zpu_loadsp_12
-{74}    long  zpu_loadsp_16
-{75}    long  zpu_loadsp_20
-{76}    long  zpu_loadsp_hi
-{77}    long  zpu_loadsp_hi
-{78}    long  zpu_loadsp_hi
+{71}    long  zpu_loadsp_N | %0_1111_1111_1111_1110_0 << 10
+{72}    long  zpu_loadsp_N | %0_1111_1111_1111_1101_0 << 10
+{73}    long  zpu_loadsp_N | %0_1111_1111_1111_1011_0 << 10
+{74}    long  zpu_loadsp_N | %0_1111_1111_1111_0111_0 << 10
+{75}    long  zpu_loadsp_N | %0_1111_1111_1110_1111_0 << 10
+{76}    long  zpu_loadsp_N | %0_1111_1111_1101_1111_0 << 10
+{77}    long  zpu_loadsp_N | %0_1111_1111_1011_1111_0 << 10
+{78}    long  zpu_loadsp_N | %0_1111_1111_0111_1111_0 << 10
 {79}    long  zpu_loadsp_hi
 {7A}    long  zpu_loadsp_hi
 {7B}    long  zpu_loadsp_hi
