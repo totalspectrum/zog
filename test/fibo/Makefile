@@ -23,7 +23,8 @@ ZPUPLATFORM=-phi
 LDFLAGS=$(ZPUPLATFORM) -Wl,--verbose -Wl,--relax -Wl,--gc-sections
 
 # Source files, add more here if you have
-SOURCES=fibo.c simple_printf.c
+#SOURCES=fibo.c simple_printf.c
+SOURCES=fibo.c
 
 # Create a list of object file names from source file names
 OBJECTS=$(SOURCES:.c=.o)

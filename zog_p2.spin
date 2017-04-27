@@ -137,7 +137,7 @@
 '#define SINGLE_STEP
 
 ' define USE_XBYTE to use P2 xbyte execution mechanism
-#define USE_XBYTE
+'#define USE_XBYTE
 
 ' define USE_CORDIC_MULDIV to use P2 qmul and qdiv
 '#define USE_CORDIC_MULDIV
@@ -643,11 +643,10 @@ next_instruction
 			getptr	pb
 			rfbyte	pa			'Some opcodes contain address offsets
 
+exec_non_im
 #ifdef SINGLE_STEP
                         call    #break
 #endif
-
-exec_non_im
 #ifndef USE_XBYTE
 
 			push	#next_instruction
@@ -912,14 +911,14 @@ dispatch_table
 {6F}    long  zpu_loadsp
 
 {70}    long  zpu_loadsp_tos
-{71}    long  zpu_loadsp_N | %0_1111_1111_1111_1110_0 << 10
-{72}    long  zpu_loadsp_N | %0_1111_1111_1111_1101_0 << 10
-{73}    long  zpu_loadsp_N | %0_1111_1111_1111_1011_0 << 10
-{74}    long  zpu_loadsp_N | %0_1111_1111_1111_0111_0 << 10
-{75}    long  zpu_loadsp_N | %0_1111_1111_1110_1111_0 << 10
-{76}    long  zpu_loadsp_N | %0_1111_1111_1101_1111_0 << 10
-{77}    long  zpu_loadsp_N | %0_1111_1111_1011_1111_0 << 10
-{78}    long  zpu_loadsp_N | %0_1111_1111_0111_1111_0 << 10
+{71}    long  zpu_loadsp_N | %0_1111_1110_0 << 10
+{72}    long  zpu_loadsp_N | %0_1111_1101_0 << 10
+{73}    long  zpu_loadsp_N | %0_1111_1011_0 << 10
+{74}    long  zpu_loadsp_N | %0_1111_0111_0 << 10
+{75}    long  zpu_loadsp_N | %0_1110_1111_0 << 10
+{76}    long  zpu_loadsp_N | %0_1101_1111_0 << 10
+{77}    long  zpu_loadsp_N | %0_1011_1111_0 << 10
+{78}    long  zpu_loadsp_N | %0_0111_1111_0 << 10
 {79}    long  zpu_loadsp_hi
 {7A}    long  zpu_loadsp_hi
 {7B}    long  zpu_loadsp_hi
