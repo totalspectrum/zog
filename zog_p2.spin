@@ -345,12 +345,6 @@ zpu_poppcrel            add     pb, tos
 zpu_flip
 	_ret_		rev     tos, tos
 
-zpu_add                 rdlong	data, ++ptrb wz
-        _ret_           add     tos, data
-
-zpu_sub                 rdlong	data, ++ptrb wz
-        _ret_           subr    tos, data		' tos = data - tos
-
 zpu_pushsp              wrlong	tos, ptrb--
                         mov     tos, ptrb
                         add     tos, #4
@@ -362,10 +356,14 @@ zpu_popsp               mov     ptrb, tos
 
 zpu_nop                 ret
 
-zpu_and                 rdlong	data, ++ptrb wz
+			'' common math routines, for SKIPF
+			'' add, and can share
+zpu_math
+			rdlong	data, ++ptrb wz
+        _ret_           add     tos, data
         _ret_           and     tos, data
-
-zpu_xor                 rdlong	data, ++ptrb wz
+        _ret_           or      tos, data
+        _ret_           subr    tos, data		' tos = data - tos
         _ret_           xor     tos, data
 
 zpu_loadb
@@ -411,8 +409,8 @@ zpu_ulessthanorequal    rdlong	data, ++ptrb
               _ret_     muxnc   tos, #1		' set to 1 if ! (data < tos)
 
 
-zpu_swap                ror     tos, #16
-			ret
+zpu_swap
+	_ret_		ror     tos, #16
 
 zpu_mult16x16           rdlong	data, ++ptrb wz
                         and     data, word_mask
@@ -442,17 +440,16 @@ zpu_mod                 rdlong	data, ++ptrb wz
                         mov     div_flags, #SPIN_REM_OP
                         jmp     #fast_div
 
-zpu_lshiftright         rdlong	data, ++ptrb wz
-                        shr     data, tos
+			'' the shifts
+			'' do lshiftright, ashiftleft, ashiftright in that order
+			'' we will use an EXECF mask to select one of the three
+			'' middle opcodes
+zpu_shiftroutine
+		        rdlong	data, ++ptrb wz
+                        shr     data, tos		' only one
+                        shl     data, tos		' only one
+                        sar     data, tos		' only one
          _ret_          mov     tos, data
-
-zpu_ashiftleft          rdlong	data, ++ptrb wz
-                        shl     data, tos
-        _ret_           mov     tos, data
-
-zpu_ashiftright         rdlong	data, ++ptrb wz
-                        sar     data, tos
-        _ret_           mov     tos, data
 
 zpu_call                mov     temp, tos
                         mov     tos, pb
@@ -668,7 +665,7 @@ exec_non_im
 			push	#next_instruction
 #endif
 			rdlut	temp, pa
-                        jmp     temp                    'No # here we are jumping through temp.
+                        execf   temp                    'No # here we are jumping through temp.
 
 '------------------------------------------------------------------------------
 
@@ -812,9 +809,9 @@ dispatch_table
 {02}    long  zpu_pushsp
 {03}    long  zpu_illegal
 {04}    long  zpu_poppc
-{05}    long  zpu_add
-{06}    long  zpu_and
-{07}    long  zpu_or
+{05}    long  zpu_math | %0_0000_0 << 10		' add
+{06}    long  zpu_math | %0_0001_0 << 10		' and
+{07}    long  zpu_math | %0_0011_0 << 10		' or
 {08}    long  zpu_load
 {09}    long  zpu_not
 {0A}    long  zpu_flip
@@ -851,16 +848,16 @@ dispatch_table
 {27}    long  zpu_ulessthanorequal
 {28}    long  zpu_swap
 {29}    long  zpu_mult
-{2A}    long  zpu_lshiftright
-{2B}    long  zpu_ashiftleft
-{2C}    long  zpu_ashiftright
+{2A}    long  zpu_shiftroutine | %0_110_0 << 10	' shr
+{2B}    long  zpu_shiftroutine | %0_101_0 << 10	' shl
+{2C}    long  zpu_shiftroutine | %0_011_0 << 10 ' sar
 {2D}    long  zpu_call
 {2E}    long  zpu_eq
 {2F}    long  zpu_neq
 
 {30}    long  zpu_neg
-{31}    long  zpu_sub
-{32}    long  zpu_xor
+{31}    long  zpu_math | %0_0111_0 << 10    ' sub
+{32}    long  zpu_math | %0_1111_0 << 10    ' xor
 {33}    long  zpu_loadb
 {34}    long  zpu_storeb
 {35}    long  zpu_div

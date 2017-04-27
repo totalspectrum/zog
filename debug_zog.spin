@@ -146,9 +146,9 @@ CON
 DAT                     org 0
 zpu_memory              byte ' Force zpu_memory to be BYTE type.
 #ifdef USE_HUB_MEMORY
-zpu_image               file "dhry.bin"
+'zpu_image               file "dhry.bin"
 'zpu_image               file "fibo.bin"
-'zpu_image               file "xxtea.bin"
+zpu_image               file "xxtea.bin"
 'zpu_image               file "fftbench.bin"
 'zpu_image		file "toggle.bin"
 padding                 byte 0[(zpu_memory_size) - (@padding - @zpu_memory)]
