@@ -108,3 +108,9 @@ dhry:       2069/sec
 fibo(8):   43515 cycles
 xxtea:    177288 cycles
 fftbench: 245587 us
+
+xbyte, optimize im_first
+dhry:       2130/sec
+fibo(8):   42439 cycles
+xxtea:    172712 cycles
+fftbench: 241653 us

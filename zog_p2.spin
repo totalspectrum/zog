@@ -343,7 +343,7 @@ zpu_poppcrel            add     pb, tos
 	_ret_		rdfast	zero, pb		' establish new pc
 
 zpu_flip
-	_ret_		rev     tos, #32
+	_ret_		rev     tos, tos
 
 zpu_add                 rdlong	data, ++ptrb wz
         _ret_           add     tos, data
@@ -495,8 +495,8 @@ div_zero_error
 'Read a LONG from ZPU memory at "address" into "tos"
 
 read_zpu_tos
-read_cog_long           cmp     address, zpu_io_start wc  'Check for COG memory access
-              if_nc     jmp     #read_io_long
+read_cog_long           cmp     address, zpu_cog_start wc  'Check for COG memory access
+              if_c      jmp     #read_io_long
 
                         shr     address, #2
                         alts    address, #0
@@ -516,8 +516,8 @@ read_other                                                      'Must be other I
 
 			
 'Write a LONG from "data" to ZPU memory at "address"
-write_long_zpu          cmp     address, zpu_io_start wc
-              if_nc     jmp     #write_io_long
+write_long_zpu          cmp     address, zpu_cog_start wc
+              if_c      jmp     #write_io_long
 
                         shr     address, #2
                         altd    address, #0
@@ -619,21 +619,36 @@ do_remainder
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
-zpu_im_first            wrlong	tos, ptrb--
-                        mov     tos, pa
-                        shl     tos, #(32 - 7)          'Sign extend
-                        sar     tos, #(32 - 7)
-
-			'' fetch next byte and see if it is
-			'' another im
-.imloop
+			'' handle im 0-3f
+zpu_im_pos_first
+			wrlong	tos, ptrb--
+			mov	tos, pa
+			and	tos, #$3f
+imloop
 			getptr	pb
 			rfbyte	pa
 			cmpsub	pa, #$80 wc	' remove the 80 if it is present
 	if_nc		jmp	#exec_non_im
 			shl	tos, #7
 			or	tos, pa
-			jmp	#.imloop
+			jmp	#imloop
+
+			'' handle im 40-7f
+imsignextend		long	$FFFFFF80
+zpu_im_neg_first
+                        wrlong	tos, ptrb--
+                        mov     tos, pa
+			or	tos, imsignextend
+			'' fetch next byte and see if it is
+			'' another im
+imloop2
+			getptr	pb
+			rfbyte	pa
+			cmpsub	pa, #$80 wc	' remove the 80 if it is present
+	if_nc		jmp	#exec_non_im
+			shl	tos, #7
+			or	tos, pa
+			jmp	#imloop2
 
 '------------------------------------------------------------------------------
 
@@ -700,21 +715,22 @@ debug_addr              mov     debug_addr, temp     'HUB address of debug regis
 			add	pb, zpu_memory_addr
 
 			' set up dispatch table in LUT
-			mov	ptra, dispatch_tab_addr
-			mov	temp, #$80
-			mov	address, #0
-.lp1			rdbyte	data, ptra++
-			wrlut	data, address
-			add	address, #1
-			djnz	temp, #.lp1
+			setq2   #$7f	  ' load bytecode table
+			rdlong	$0, dispatch_tab_addr
 
-			' fill the rest of the table with run_zpu_im
-			mov	data, #zpu_im_first
-			mov	temp, #$80
+			' fill the rest of the table with ZPU instructions
+			mov	address, #$80
+			mov	data, #zpu_im_pos_first
+			mov	temp, #$40
 .lp2			wrlut	data, address
 			add	address, #1
 			djnz	temp, #.lp2
 
+			mov	data, #zpu_im_neg_first
+			mov	temp, #$40
+.lp3			wrlut	data, address
+			add	address, #1
+			djnz	temp, #.lp3
 
 #ifdef USE_XBYTE
 restart_xbyte
@@ -783,149 +799,149 @@ word_mask               long $0000FFFF
 timer_address           long $80000100
 sys_cognew_             long SYS_cognew
 
-zpu_hub_start           long $10000000  'Start of HUB access window in ZPU memory space
-zpu_cog_start           long $10008000  'Start of COG access window in ZPU memory space
-zpu_io_start            long $10008800  'Start of IO access window
+
+zpu_io_base             long $80000000  'Start of IO access window
+zpu_cog_start           long $80008000  'Start of COG access window in ZPU memory space
 '------------------------------------------------------------------------------
                         fit     $1C0
 '------------------------------------------------------------------------------
 ' The instruction dispatch look up table (in HUB)
 dispatch_table
-{00}    byte  zpu_breakpoint
-{01}    byte  zpu_illegal
-{02}    byte  zpu_pushsp
-{03}    byte  zpu_illegal
-{04}    byte  zpu_poppc
-{05}    byte  zpu_add
-{06}    byte  zpu_and
-{07}    byte  zpu_or
-{08}    byte  zpu_load
-{09}    byte  zpu_not
-{0A}    byte  zpu_flip
-{0B}    byte  zpu_nop
-{0C}    byte  zpu_store
-{0D}    byte  zpu_popsp
-{0E}    byte  zpu_illegal
-{0F}    byte  zpu_illegal
+{00}    long  zpu_breakpoint
+{01}    long  zpu_illegal
+{02}    long  zpu_pushsp
+{03}    long  zpu_illegal
+{04}    long  zpu_poppc
+{05}    long  zpu_add
+{06}    long  zpu_and
+{07}    long  zpu_or
+{08}    long  zpu_load
+{09}    long  zpu_not
+{0A}    long  zpu_flip
+{0B}    long  zpu_nop
+{0C}    long  zpu_store
+{0D}    long  zpu_popsp
+{0E}    long  zpu_illegal
+{0F}    long  zpu_illegal
 
-{10}    byte  zpu_addsp_0
-{11}    byte  zpu_addsp_4
-{12}    byte  zpu_addsp_8
-{13}    byte  zpu_addsp_12
-{14}    byte  zpu_addsp_16
-{15}    byte  zpu_addsp
-{16}    byte  zpu_addsp
-{17}    byte  zpu_addsp
-{18}    byte  zpu_addsp
-{19}    byte  zpu_addsp
-{1A}    byte  zpu_addsp
-{1B}    byte  zpu_addsp
-{1C}    byte  zpu_addsp
-{1D}    byte  zpu_addsp
-{1E}    byte  zpu_addsp
-{1F}    byte  zpu_addsp
+{10}    long  zpu_addsp_0
+{11}    long  zpu_addsp_4
+{12}    long  zpu_addsp_8
+{13}    long  zpu_addsp_12
+{14}    long  zpu_addsp_16
+{15}    long  zpu_addsp
+{16}    long  zpu_addsp
+{17}    long  zpu_addsp
+{18}    long  zpu_addsp
+{19}    long  zpu_addsp
+{1A}    long  zpu_addsp
+{1B}    long  zpu_addsp
+{1C}    long  zpu_addsp
+{1D}    long  zpu_addsp
+{1E}    long  zpu_addsp
+{1F}    long  zpu_addsp
 
-{20}    byte  not_implemented' zpu_emulate
-{21}    byte  not_implemented' zpu_emulate
-{22}    byte  zpu_loadh
-{23}    byte  zpu_storeh
-{24}    byte  zpu_lessthan
-{25}    byte  zpu_lessthanorequal
-{26}    byte  zpu_ulessthan
-{27}    byte  zpu_ulessthanorequal
-{28}    byte  zpu_swap
-{29}    byte  zpu_mult
-{2A}    byte  zpu_lshiftright
-{2B}    byte  zpu_ashiftleft
-{2C}    byte  zpu_ashiftright
-{2D}    byte  zpu_call
-{2E}    byte  zpu_eq
-{2F}    byte  zpu_neq
+{20}    long  not_implemented' zpu_emulate
+{21}    long  not_implemented' zpu_emulate
+{22}    long  zpu_loadh
+{23}    long  zpu_storeh
+{24}    long  zpu_lessthan
+{25}    long  zpu_lessthanorequal
+{26}    long  zpu_ulessthan
+{27}    long  zpu_ulessthanorequal
+{28}    long  zpu_swap
+{29}    long  zpu_mult
+{2A}    long  zpu_lshiftright
+{2B}    long  zpu_ashiftleft
+{2C}    long  zpu_ashiftright
+{2D}    long  zpu_call
+{2E}    long  zpu_eq
+{2F}    long  zpu_neq
 
-{30}    byte  zpu_neg
-{31}    byte  zpu_sub
-{32}    byte  zpu_xor
-{33}    byte  zpu_loadb
-{34}    byte  zpu_storeb
-{35}    byte  zpu_div
-{36}    byte  zpu_mod
-{37}    byte  zpu_eqbranch
-{38}    byte  zpu_neqbranch
-{39}    byte  zpu_poppcrel
-{3A}    byte  zpu_config
-{3B}    byte  zpu_pushpc
-{3C}    byte  zpu_syscall
-{3D}    byte  zpu_pushspadd
-{3E}    byte  zpu_mult16x16
-{3F}    byte  zpu_callpcrel
+{30}    long  zpu_neg
+{31}    long  zpu_sub
+{32}    long  zpu_xor
+{33}    long  zpu_loadb
+{34}    long  zpu_storeb
+{35}    long  zpu_div
+{36}    long  zpu_mod
+{37}    long  zpu_eqbranch
+{38}    long  zpu_neqbranch
+{39}    long  zpu_poppcrel
+{3A}    long  zpu_config
+{3B}    long  zpu_pushpc
+{3C}    long  zpu_syscall
+{3D}    long  zpu_pushspadd
+{3E}    long  zpu_mult16x16
+{3F}    long  zpu_callpcrel
 
-{40}    byte  zpu_storesp
-{41}    byte  zpu_storesp
-{42}    byte  zpu_storesp
-{43}    byte  zpu_storesp
-{44}    byte  zpu_storesp
-{45}    byte  zpu_storesp
-{46}    byte  zpu_storesp
-{47}    byte  zpu_storesp
-{48}    byte  zpu_storesp
-{49}    byte  zpu_storesp
-{4A}    byte  zpu_storesp
-{4B}    byte  zpu_storesp
-{4C}    byte  zpu_storesp
-{4D}    byte  zpu_storesp
-{4E}    byte  zpu_storesp
-{4F}    byte  zpu_storesp
+{40}    long  zpu_storesp
+{41}    long  zpu_storesp
+{42}    long  zpu_storesp
+{43}    long  zpu_storesp
+{44}    long  zpu_storesp
+{45}    long  zpu_storesp
+{46}    long  zpu_storesp
+{47}    long  zpu_storesp
+{48}    long  zpu_storesp
+{49}    long  zpu_storesp
+{4A}    long  zpu_storesp
+{4B}    long  zpu_storesp
+{4C}    long  zpu_storesp
+{4D}    long  zpu_storesp
+{4E}    long  zpu_storesp
+{4F}    long  zpu_storesp
 
-{50}    byte  zpu_storesp_0
-{51}    byte  zpu_storesp_4
-{52}    byte  zpu_storesp_8
-{53}    byte  zpu_storesp_12
-{54}    byte  zpu_storesp_16
-{55}    byte  zpu_storesp_20
-{56}    byte  zpu_storesp_hi
-{57}    byte  zpu_storesp_hi
-{58}    byte  zpu_storesp_hi
-{59}    byte  zpu_storesp_hi
-{5A}    byte  zpu_storesp_hi
-{5B}    byte  zpu_storesp_hi
-{5C}    byte  zpu_storesp_hi
-{5D}    byte  zpu_storesp_hi
-{5E}    byte  zpu_storesp_hi
-{5F}    byte  zpu_storesp_hi
+{50}    long  zpu_storesp_0
+{51}    long  zpu_storesp_4
+{52}    long  zpu_storesp_8
+{53}    long  zpu_storesp_12
+{54}    long  zpu_storesp_16
+{55}    long  zpu_storesp_20
+{56}    long  zpu_storesp_hi
+{57}    long  zpu_storesp_hi
+{58}    long  zpu_storesp_hi
+{59}    long  zpu_storesp_hi
+{5A}    long  zpu_storesp_hi
+{5B}    long  zpu_storesp_hi
+{5C}    long  zpu_storesp_hi
+{5D}    long  zpu_storesp_hi
+{5E}    long  zpu_storesp_hi
+{5F}    long  zpu_storesp_hi
 
-{60}    byte  zpu_loadsp
-{61}    byte  zpu_loadsp
-{62}    byte  zpu_loadsp
-{63}    byte  zpu_loadsp
-{64}    byte  zpu_loadsp
-{65}    byte  zpu_loadsp
-{66}    byte  zpu_loadsp
-{67}    byte  zpu_loadsp
-{68}    byte  zpu_loadsp
-{69}    byte  zpu_loadsp
-{6A}    byte  zpu_loadsp
-{6B}    byte  zpu_loadsp
-{6C}    byte  zpu_loadsp
-{6D}    byte  zpu_loadsp
-{6E}    byte  zpu_loadsp
-{6F}    byte  zpu_loadsp
+{60}    long  zpu_loadsp
+{61}    long  zpu_loadsp
+{62}    long  zpu_loadsp
+{63}    long  zpu_loadsp
+{64}    long  zpu_loadsp
+{65}    long  zpu_loadsp
+{66}    long  zpu_loadsp
+{67}    long  zpu_loadsp
+{68}    long  zpu_loadsp
+{69}    long  zpu_loadsp
+{6A}    long  zpu_loadsp
+{6B}    long  zpu_loadsp
+{6C}    long  zpu_loadsp
+{6D}    long  zpu_loadsp
+{6E}    long  zpu_loadsp
+{6F}    long  zpu_loadsp
 
-{70}    byte  zpu_loadsp_tos
-{71}    byte  zpu_loadsp_4
-{72}    byte  zpu_loadsp_8
-{73}    byte  zpu_loadsp_12
-{74}    byte  zpu_loadsp_16
-{75}    byte  zpu_loadsp_20
-{76}    byte  zpu_loadsp_hi
-{77}    byte  zpu_loadsp_hi
-{78}    byte  zpu_loadsp_hi
-{79}    byte  zpu_loadsp_hi
-{7A}    byte  zpu_loadsp_hi
-{7B}    byte  zpu_loadsp_hi
-{7C}    byte  zpu_loadsp_hi
-{7D}    byte  zpu_loadsp_hi
-{7E}    byte  zpu_loadsp_hi
-{7F}    byte  zpu_loadsp_hi
+{70}    long  zpu_loadsp_tos
+{71}    long  zpu_loadsp_4
+{72}    long  zpu_loadsp_8
+{73}    long  zpu_loadsp_12
+{74}    long  zpu_loadsp_16
+{75}    long  zpu_loadsp_20
+{76}    long  zpu_loadsp_hi
+{77}    long  zpu_loadsp_hi
+{78}    long  zpu_loadsp_hi
+{79}    long  zpu_loadsp_hi
+{7A}    long  zpu_loadsp_hi
+{7B}    long  zpu_loadsp_hi
+{7C}    long  zpu_loadsp_hi
+{7D}    long  zpu_loadsp_hi
+{7E}    long  zpu_loadsp_hi
+{7F}    long  zpu_loadsp_hi
 '---------------------------------------------------------------------------------------------------------
 'N.B. Do not add any more after the dispatch table.
 '     It must be at the end such that it can be found and/or extracted by build

@@ -150,6 +150,7 @@ zpu_image               file "dhry.bin"
 'zpu_image               file "fibo.bin"
 'zpu_image               file "xxtea.bin"
 'zpu_image               file "fftbench.bin"
+'zpu_image		file "toggle.bin"
 padding                 byte 0[(zpu_memory_size) - (@padding - @zpu_memory)]
 zpu_memory_end
                         fit (zpu_memory_size / 4)
