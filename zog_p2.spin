@@ -215,18 +215,17 @@ zpu_breakpoint          jmp    #break
 
 zpu_addsp_0
 	_ret_		add     tos, tos                'Special case for offset = 0
-zpu_addsp_4
-			rdlong	data, ptrb[1]
-	_ret_		add	tos, data
-zpu_addsp_8
+zpu_addsp_N
+			'' use execf mask mechanism to select just one of the below 8
+			rdlong	data, ptrb[1]	       ' only one
 			rdlong	data, ptrb[2]
-	_ret_		add	tos, data	
-zpu_addsp_12
 			rdlong	data, ptrb[3]
-	_ret_		add	tos, data
-zpu_addsp_16
 			rdlong	data, ptrb[4]
-	_ret_		add	tos, data
+			rdlong	data, ptrb[5]
+			rdlong	data, ptrb[6]
+			rdlong	data, ptrb[7]
+			rdlong	data, ptrb[8]		' only one
+	_ret_		add	tos, data		' always execute
 	
 zpu_addsp               and     pa, #$0F
                         shl     pa, #2
@@ -239,7 +238,7 @@ zpu_loadsp_tos
 
 zpu_loadsp_N
 			wrlong	tos, ptrb--
-			'' use an execf mask to select one of these
+			'' use an execf mask to select one of these 8
 	_ret_		rdlong	tos, ptrb[2]
 	_ret_		rdlong	tos, ptrb[3]
 	_ret_		rdlong	tos, ptrb[4]
@@ -811,14 +810,14 @@ dispatch_table
 {0F}    long  zpu_illegal
 
 {10}    long  zpu_addsp_0
-{11}    long  zpu_addsp_4
-{12}    long  zpu_addsp_8
-{13}    long  zpu_addsp_12
-{14}    long  zpu_addsp_16
-{15}    long  zpu_addsp
-{16}    long  zpu_addsp
-{17}    long  zpu_addsp
-{18}    long  zpu_addsp
+{11}    long  zpu_addsp_N | %0_1111_1110 << 10
+{12}    long  zpu_addsp_N | %0_1111_1101 << 10
+{13}    long  zpu_addsp_N | %0_1111_1011 << 10
+{14}    long  zpu_addsp_N | %0_1111_0111 << 10
+{15}    long  zpu_addsp_N | %0_1110_1111 << 10
+{16}    long  zpu_addsp_N | %0_1101_1111 << 10
+{17}    long  zpu_addsp_N | %0_1011_1111 << 10
+{18}    long  zpu_addsp_N | %0_0111_1111 << 10
 {19}    long  zpu_addsp
 {1A}    long  zpu_addsp
 {1B}    long  zpu_addsp
