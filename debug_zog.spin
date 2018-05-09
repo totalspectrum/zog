@@ -147,8 +147,8 @@ DAT                     org 0
 zpu_memory              byte ' Force zpu_memory to be BYTE type.
 #ifdef USE_HUB_MEMORY
 'zpu_image               file "dhry.bin"
-zpu_image               file "fibo.bin"
-'zpu_image               file "xxtea.bin"
+'zpu_image               file "fibo.bin"
+zpu_image               file "xxtea.bin"
 'zpu_image               file "fftbench.bin"
 'zpu_image		file "toggle.bin"
 padding                 byte 0[(zpu_memory_size) - (@padding - @zpu_memory)]
@@ -290,6 +290,7 @@ VAR
 
 PUB start : okay | n
   ser.start(def#conRxPin, def#conTxPin, def#conMode, def#conBaud) 'Start the debug Terminal
+  waitcnt(cnt+40_000_000)                               'Give serial terminal time
   ser.str(string("ZOG v1.7"))
 
 #ifdef USE_JCACHED_MEMORY
@@ -780,10 +781,10 @@ PRI _time
 
 PRI print_regs | i, p, op
 'Print the ZPU registers
-  ser.str(string("0X"))
+  ser.str(string("0x"))
   ser.hex(zog_mbox_pc, 7)
   ser.tx($20)
-  ser.str(string("0X"))
+  ser.str(string("0x"))
 #ifdef USE_JCACHED_MEMORY
   op := cm.readbyte(zog_mbox_pc ^ ENDIAN_FIX)                  'XOR here is an endianess fix.
 #endif
@@ -795,13 +796,13 @@ PRI print_regs | i, p, op
 #endif
   ser.hex(op, 2)
   ser.tx($20)
-  ser.str(string("0X"))
+  ser.str(string("0x"))
   ser.hex(zog_mbox_sp, 8)
   ser.tx($20)
-  ser.str(string("0X"))
+  ser.str(string("0x"))
   ser.hex(zog_mbox_tos, 8)
   ser.tx($20)
-  ser.str(string("0X"))
+  ser.str(string("0x"))
   ser.hex(zog_mbox_dm, 8)
   crlf
 

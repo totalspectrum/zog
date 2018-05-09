@@ -14,7 +14,8 @@ OC=$(TOOLPATH)zpu-elf-objcopy -O binary
 #OC=$(TOOLPATH)zpu-elf-objcopy -O srec --srec-forceS3
 
 # Compiler flags. Compile only, debug info, all warnings, optimize for size
-CFLAGS=-c -g -Os -std=c99 -Dprintf=__simple_printf -DGETMS
+OPT=-Os
+CFLAGS=-c -g $(OPT) -std=c99 -Dprintf=__simple_printf -DGETMS
 
 # The ZPU platform Phi board (phi) or Able board (able)
 ZPUPLATFORM=-phi
