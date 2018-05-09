@@ -29,7 +29,8 @@ VAR
 PUB start(rx_pin, tx_pin, mode, baudrate)
 #ifndef PC
   baud := baudrate
-  bitcycles := clkfreq / baudrate
+  ''bitcycles := clkfreq / baudrate
+  bitcycles := 80_000_000 / baudrate
   txpin := tx_pin
   txmask := (1<<txpin)
   rxpin := rx_pin

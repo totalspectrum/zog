@@ -137,7 +137,7 @@
 '#define SINGLE_STEP
 
 ' define USE_XBYTE to use P2 xbyte execution mechanism
-'#define USE_XBYTE
+#define USE_XBYTE
 
 ' define USE_CORDIC_MULDIV to use P2 qmul and qdiv
 '#define USE_CORDIC_MULDIV
@@ -314,7 +314,8 @@ zpu_pushspadd           shl     tos, #2
                         add     tos, ptrb
 	_ret_		sub	tos, zpu_memory_addr
 
-zpu_store               rdlong	data, ++ptrb
+zpu_store
+			rdlong	data, ++ptrb
                         mov     address, tos wc
 			rdlong	tos, ++ptrb
 	if_c		jmp	#write_long_zpu		' write special address
@@ -331,7 +332,7 @@ zpu_poppcrel            add     pb, tos
 	_ret_		rdfast	zero, pb		' establish new pc
 
 zpu_flip
-	_ret_		rev     tos, tos
+	_ret_		rev     tos
 
 zpu_pushsp              wrlong	tos, ptrb--
                         mov     tos, ptrb
@@ -359,19 +360,19 @@ zpu_loadb
         _ret_           rdbyte  tos, tos
 
 zpu_storeb
-			rdlong	data, ++ptrb wz
+			rdlong	data, ++ptrb
                         add     tos, zpu_memory_addr
                         wrbyte  data, tos
-	_ret_		rdlong	tos, ++ptrb wz
+	_ret_		rdlong	tos, ++ptrb
 
 zpu_loadh               add     tos, zpu_memory_addr
 	_ret_		rdword	tos, tos
 
 
-zpu_storeh              rdlong	data, ++ptrb wz
+zpu_storeh              rdlong	data, ++ptrb
 			add	tos, zpu_memory_addr
 			wrword	data, tos
-        _ret_           rdlong	tos, ++ptrb wz
+        _ret_           rdlong	tos, ++ptrb
 
 zpu_lessthan            rdlong	data, ++ptrb
                         cmps    tos, data wz,wc
@@ -532,8 +533,8 @@ fast_mul
                         abs     data, data      wc
                         ' make t2 the smaller of the 2 unsigned parameters
                         mov     t2, tos
-                        max     t2, data
-                        min     data, tos
+                        fle     t2, data
+                        fge     data, tos
                         ' correct the sign of the adder
                         negc    data, data
 
@@ -720,7 +721,7 @@ debug_addr              mov     debug_addr, temp     'HUB address of debug regis
 restart_xbyte
 			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
 			'' start up the xbyte loop
-			push	 #$1f8
+			push	 #$1ff
 	_ret_		setq	 #$0		' 256 long execf table
 			jmp	 #restart_xbyte
 #else
