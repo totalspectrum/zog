@@ -131,8 +131,10 @@ OBJ
     def : "userdefs.spin"
 
 CON
+#ifndef __P2__
     _clkmode        = def#_clkmode
     _xinfreq        = def#_xinfreq
+#endif    
     ' user baud rate
     baud            = def#conBaud
     ' user microSD pins
@@ -146,9 +148,9 @@ CON
 DAT                     org 0
 zpu_memory              byte ' Force zpu_memory to be BYTE type.
 #ifdef USE_HUB_MEMORY
-'zpu_image               file "dhry.bin"
+zpu_image               file "dhry.bin"
 'zpu_image               file "fibo.bin"
-zpu_image               file "xxtea.bin"
+'zpu_image               file "xxtea.bin"
 'zpu_image               file "fftbench.bin"
 'zpu_image		file "toggle.bin"
 padding                 byte 0[(zpu_memory_size) - (@padding - @zpu_memory)]
@@ -177,7 +179,7 @@ zpu_memory_size = (64 * 1024)                            'The size of ZPU memory
 #endif
 #ifdef USE_HUB_MEMORY
 #ifdef __P2__
-zpu_memory_size = (24 * 1024)                            'The size of ZPU memory area
+zpu_memory_size = (480 * 1024)                            'The size of ZPU memory area
 #else
 zpu_memory_size = (20 * 1024)                            'The size of ZPU memory area
 #endif
@@ -289,6 +291,9 @@ VAR
   byte diskbuff[512]
 
 PUB start : okay | n
+#ifdef __P2__
+  clkset(def#p2_clkmode, def#p2_freq)
+#endif
   ser.start(def#conRxPin, def#conTxPin, def#conMode, def#conBaud) 'Start the debug Terminal
   waitcnt(cnt+40_000_000)                               'Give serial terminal time
   ser.str(string("ZOG v1.7"))

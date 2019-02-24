@@ -9,9 +9,14 @@ For first time use:
 
 con '' clock settings
 
+#ifdef __P2__
+    p2_clkmode    = $010003f8
+    p2_freq    = 80_000_000
+#else
     _clkmode    = xtal1 + pll16x
 '    _xinfreq    = 6_553_600
     _xinfreq    = 5_000_000
+#endif
 
 con '' console uart settings
 
