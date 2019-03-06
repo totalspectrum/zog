@@ -148,7 +148,8 @@ CON
 DAT                     org 0
 zpu_memory              byte ' Force zpu_memory to be BYTE type.
 #ifdef USE_HUB_MEMORY
-zpu_image               file "dhry.bin"
+zpu_image	file "program.bin"
+'zpu_image               file "dhry.bin"
 'zpu_image               file "fibo.bin"
 'zpu_image               file "xxtea.bin"
 'zpu_image               file "fftbench.bin"
@@ -179,7 +180,7 @@ zpu_memory_size = (64 * 1024)                            'The size of ZPU memory
 #endif
 #ifdef USE_HUB_MEMORY
 #ifdef __P2__
-zpu_memory_size = (480 * 1024)                            'The size of ZPU memory area
+zpu_memory_size = (128 * 1024)                            'The size of ZPU memory area
 #else
 zpu_memory_size = (20 * 1024)                            'The size of ZPU memory area
 #endif
