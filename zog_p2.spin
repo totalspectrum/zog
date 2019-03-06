@@ -140,7 +140,7 @@
 #define USE_XBYTE
 
 ' define USE_CORDIC_MULDIV to use P2 qmul and qdiv
-'#define USE_CORDIC_MULDIV
+#define USE_CORDIC_MULDIV
 
 CON
 ' These are the SPIN byte codes for mul and div
@@ -299,9 +299,6 @@ zpu_pushpc              wrlong	tos, ptrb--
                         mov     tos, pb
 	_ret_		sub	tos, zpu_memory_addr
 
-zpu_or                  rdlong  data, ++ptrb wz
-        _ret_           or      tos, data
-
 zpu_not
 	_ret_		xor     tos, minus_one
 
@@ -446,14 +443,14 @@ zpu_call                mov     temp, tos
 			sub	tos, zpu_memory_addr
                         mov     pb, temp
 			add	pb, zpu_memory_addr
-	_ret_		rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
+	_ret_		rdfast	#0, pb
 
 zpu_callpcrel           mov     temp, tos
                         mov     tos, pb
                         add     tos, #1
 			sub	tos, zpu_memory_addr
                         add     pb, temp
-	_ret_		rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
+	_ret_		rdfast	#0, pb
 
 zpu_eq                  rdlong	data, ++ptrb
                         cmp     tos, data wz
