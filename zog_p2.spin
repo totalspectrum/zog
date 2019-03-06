@@ -322,11 +322,11 @@ zpu_store
 zpu_poppc               mov     pb, tos
 			add	pb, zpu_memory_addr
                         rdlong	tos, ++ptrb wz
-	_ret_		rdfast	zero, pb		' establish new pc
+	_ret_		rdfast	#0, pb		' establish new pc
 
 zpu_poppcrel            add     pb, tos
 			rdlong	tos, ++ptrb wz
-	_ret_		rdfast	zero, pb		' establish new pc
+	_ret_		rdfast	#0, pb		' establish new pc
 
 zpu_flip
 	_ret_		rev     tos
@@ -405,12 +405,12 @@ zpu_mult16x16           rdlong	data, ++ptrb wz
 
 zpu_eqbranch            rdlong	data, ++ptrb wz
               if_z      add     pb, tos
-	      if_z	rdfast	zero, pb		' establish new pc
+	      if_z	rdfast	#0, pb		' establish new pc
               _ret_     rdlong	tos, ++ptrb
 
 zpu_neqbranch           rdlong	data, ++ptrb wz
               if_nz     add     pb, tos
-	      if_nz	rdfast	zero, pb		' establish new pc
+	      if_nz	rdfast	#0, pb		' establish new pc
               _ret_     rdlong	tos, ++ptrb
 
 zpu_mult                rdlong	data, ++ptrb wz
@@ -716,13 +716,13 @@ debug_addr              mov     debug_addr, temp     'HUB address of debug regis
 
 #ifdef USE_XBYTE
 restart_xbyte
-			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
+			rdfast	#0, pb
 			'' start up the xbyte loop
 			push	 #$1ff
 	_ret_		setq	 #$0		' 256 long execf table
 			jmp	 #restart_xbyte
 #else
-			rdfast	zero, pb		' should be rdfast #0,pc but fastspin has a bug
+			rdfast	#0, pb
 			jmp	#next_instruction
 #endif
 '------------------------------------------------------------------------------
