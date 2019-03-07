@@ -140,11 +140,15 @@
 ' define USE_XBYTE to use P2 xbyte execution mechanism
 '#define USE_XBYTE
 
+' use an inline loop for reading immediate values,
+' instead of relying on XBYTE setq2
+#define USE_IMMEDIATE_LOOP
+
 ' define USE_CORDIC_MULDIV to use P2 qmul and qdiv
 #define USE_CORDIC_MULDIV
 
 #ifdef USE_XBYTE
-#define RET_UPDATE_JMP_TABLE  _ret_ setq
+#define RET_UPDATE_JMP_TABLE  _ret_ setq2
 #else
 #define RET_UPDATE_JMP_TABLE _ret_ mov jmp_table_base,
 #endif
@@ -424,7 +428,7 @@ zpu_popsp               mov     ptrb, tos
 
 PEND_zpu_nop
 			wrlong	tos, ptrb--
-			mov	tos, PendingTos
+	_ret_		mov	tos, PendingTos
 zpu_nop                 ret
 
 			'' common math routines, for SKIPF
@@ -778,15 +782,34 @@ do_remainder
 zpu_im_pos_first
 			mov	PendingTos, pa
 			and	PendingTos, #$3f
+#ifdef USE_IMMEDIATE_LOOP
+#ifndef USE_XBYTE
+			mov	jmp_table_base, #$100
+#endif			
+imloop
+			getptr	pb
+			rfbyte	pa
+			cmpsub	pa, #$80 wc	' remove the 80 if it is present
+	if_nc		jmp	#exec_non_im
+			shl	PendingTos, #7
+			or	PendingTos, pa
+			jmp	#imloop
+#else
 			RET_UPDATE_JMP_TABLE #$100
-
+#endif
 			'' handle im 40-7f
 imsignextend		long	$FFFFFF80
 zpu_im_neg_first
                         mov     PendingTos, pa
 			or	PendingTos, imsignextend
+#ifdef USE_IMMEDIATE_LOOP
+#ifndef USE_XBYTE
+			mov	jmp_table_base, #$100
+#endif			
+			jmp	#imloop
+#else			
 			RET_UPDATE_JMP_TABLE #$100
-
+#endif
 zpu_im_next
 			shl	PendingTos, #7
 			and	pa, #$7f
@@ -806,7 +829,13 @@ exec_non_im
                         call    #break
 #endif
 #ifdef USE_XBYTE
-			jmp	#restart_xbyte
+			' we will only get here via an explicit jump from the
+			' code to handle immediates
+			add	pa, #$100	' use alternate instruction table
+			rdlut	temp, pa
+			execf	temp
+			getptr	pb
+			jmp	#restart_xbyte_loop
 #else
 			push	#next_instruction
 			add	pa, jmp_table_base
