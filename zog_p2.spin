@@ -1,3 +1,4 @@
+#define ALWAYS
 '*******************************************************************************
 '*                                                                             *
 '* ZOG      A ZPU Virtual machine running on the Parallax Propeller            *
@@ -137,7 +138,7 @@
 '#define SINGLE_STEP
 
 ' define USE_XBYTE to use P2 xbyte execution mechanism
-#define USE_XBYTE
+'#define USE_XBYTE
 
 ' define USE_CORDIC_MULDIV to use P2 qmul and qdiv
 #define USE_CORDIC_MULDIV
@@ -607,14 +608,11 @@ zpu_im_pos_first
 			wrlong	tos, ptrb--
 			mov	tos, pa
 			and	tos, #$3f
-imloop
-			getptr	pb
-			rfbyte	pa
-			cmpsub	pa, #$80 wc	' remove the 80 if it is present
-	if_nc		jmp	#exec_non_im
-			shl	tos, #7
-			or	tos, pa
-			jmp	#imloop
+#ifdef USE_XBYTE
+        _ret_		setq2	#$100
+#else       
+	_ret_		mov	jmp_table_base, #$100	' use new jump table for next instruction
+#endif	
 
 			'' handle im 40-7f
 imsignextend		long	$FFFFFF80
@@ -622,16 +620,21 @@ zpu_im_neg_first
                         wrlong	tos, ptrb--
                         mov     tos, pa
 			or	tos, imsignextend
-			'' fetch next byte and see if it is
-			'' another im
-imloop2
-			getptr	pb
-			rfbyte	pa
-			cmpsub	pa, #$80 wc	' remove the 80 if it is present
-	if_nc		jmp	#exec_non_im
+#ifdef USE_XBYTE
+        _ret_		setq2	#$100
+#else       
+	_ret_		mov	jmp_table_base, #$100	' use new jump table for next instruction
+#endif	
+
+zpu_im_next
 			shl	tos, #7
+			and	pa, #$7f
 			or	tos, pa
-			jmp	#imloop2
+#ifdef USE_XBYTE
+	_ret_		setq2	#$100
+#else
+	_ret_		mov	jmp_table_base, #$100
+#endif
 
 '------------------------------------------------------------------------------
 
@@ -648,6 +651,8 @@ exec_non_im
 #ifndef USE_XBYTE
 
 			push	#next_instruction
+			add	pa, jmp_table_base
+			mov	jmp_table_base, #0
 #endif
 			rdlut	temp, pa
                         execf   temp                    'No # here we are jumping through temp.
@@ -673,7 +678,7 @@ tos                     add     address, #4          'Top Of Stack
 dispatch_tab_addr       rdlong  dispatch_tab_addr, address'HUB address of instruction dispatch table
 data                    add     address, #4          'Data parameter for read, write etc
                       '  rdlong  pasm_addr, address
-cpu                     add     address, #4          'The CPU type given by the CONGIG op.
+cpu                     add     address, #4          'The CPU type given by the CONFIG op.
 
 ' div_flags was called a
 div_flags               rdlong  temp, address        '7th par item is address of ZOG I/O mailbox
@@ -714,6 +719,17 @@ debug_addr              mov     debug_addr, temp     'HUB address of debug regis
 			add	address, #1
 			djnz	temp, #.lp3
 
+			' now set up the alternate dispatch table for when immediates are pending
+			setq2  #$7f
+			rdlong $100, dispatch_table_alternate_ptr
+
+			' and set up the rest of the table
+			mov	address, #$180
+			mov	data, #zpu_im_next
+			mov	temp, #$80
+.lp4			wrlut	data, address
+			add	address, #1
+			djnz	temp, #.lp4
 #ifdef USE_XBYTE
 restart_xbyte
 			rdfast	#0, pb
@@ -780,14 +796,155 @@ minus_two               long $FFFFFFFE
 word_mask               long $0000FFFF
 timer_address           long $80000100
 sys_cognew_             long SYS_cognew
-
+jmp_table_base		long 0
 
 zpu_io_base             long $80000000  'Start of IO access window
 zpu_cog_start           long $80008000  'Start of COG access window in ZPU memory space
+dispatch_table_alternate_ptr
+			long @@@dispatch_table_alternate
+			
 '------------------------------------------------------------------------------
                         fit     $1C0
 '------------------------------------------------------------------------------
 ' The instruction dispatch look up table (in HUB)
+dispatch_table_alternate
+{00}    long  zpu_breakpoint
+{01}    long  zpu_illegal
+{02}    long  zpu_pushsp
+{03}    long  zpu_illegal
+{04}    long  zpu_poppc
+{05}    long  zpu_math | %0_0000_0 << 10		' add
+{06}    long  zpu_math | %0_0001_0 << 10		' and
+{07}    long  zpu_math | %0_0011_0 << 10		' or
+{08}    long  zpu_load
+{09}    long  zpu_not
+{0A}    long  zpu_flip
+{0B}    long  zpu_nop
+{0C}    long  zpu_store
+{0D}    long  zpu_popsp
+{0E}    long  zpu_illegal
+{0F}    long  zpu_illegal
+
+{10}    long  zpu_addsp_0
+{11}    long  zpu_addsp_N | %0_1111_1110 << 10
+{12}    long  zpu_addsp_N | %0_1111_1101 << 10
+{13}    long  zpu_addsp_N | %0_1111_1011 << 10
+{14}    long  zpu_addsp_N | %0_1111_0111 << 10
+{15}    long  zpu_addsp_N | %0_1110_1111 << 10
+{16}    long  zpu_addsp_N | %0_1101_1111 << 10
+{17}    long  zpu_addsp_N | %0_1011_1111 << 10
+{18}    long  zpu_addsp_N | %0_0111_1111 << 10
+{19}    long  zpu_addsp
+{1A}    long  zpu_addsp
+{1B}    long  zpu_addsp
+{1C}    long  zpu_addsp
+{1D}    long  zpu_addsp
+{1E}    long  zpu_addsp
+{1F}    long  zpu_addsp
+
+{20}    long  not_implemented' zpu_emulate
+{21}    long  not_implemented' zpu_emulate
+{22}    long  zpu_loadh
+{23}    long  zpu_storeh
+{24}    long  zpu_lessthan
+{25}    long  zpu_lessthanorequal
+{26}    long  zpu_ulessthan
+{27}    long  zpu_ulessthanorequal
+{28}    long  zpu_swap
+{29}    long  zpu_mult
+{2A}    long  zpu_shiftroutine | %0_110_0 << 10	' shr
+{2B}    long  zpu_shiftroutine | %0_101_0 << 10	' shl
+{2C}    long  zpu_shiftroutine | %0_011_0 << 10 ' sar
+{2D}    long  zpu_call
+{2E}    long  zpu_eq
+{2F}    long  zpu_neq
+
+{30}    long  zpu_neg
+{31}    long  zpu_math | %0_0111_0 << 10    ' sub
+{32}    long  zpu_math | %0_1111_0 << 10    ' xor
+{33}    long  zpu_loadb
+{34}    long  zpu_storeb
+{35}    long  zpu_div
+{36}    long  zpu_mod
+{37}    long  zpu_eqbranch
+{38}    long  zpu_neqbranch
+{39}    long  zpu_poppcrel
+{3A}    long  zpu_config
+{3B}    long  zpu_pushpc
+{3C}    long  zpu_syscall
+{3D}    long  zpu_pushspadd
+{3E}    long  zpu_mult16x16
+{3F}    long  zpu_callpcrel
+
+{40}    long  zpu_storesp
+{41}    long  zpu_storesp
+{42}    long  zpu_storesp
+{43}    long  zpu_storesp
+{44}    long  zpu_storesp
+{45}    long  zpu_storesp
+{46}    long  zpu_storesp
+{47}    long  zpu_storesp
+{48}    long  zpu_storesp
+{49}    long  zpu_storesp
+{4A}    long  zpu_storesp
+{4B}    long  zpu_storesp
+{4C}    long  zpu_storesp
+{4D}    long  zpu_storesp
+{4E}    long  zpu_storesp
+{4F}    long  zpu_storesp
+
+{50}    long  zpu_storesp_0
+{51}    long  zpu_storesp_N | %0_1111_1110 << 10
+{52}    long  zpu_storesp_N | %0_1111_1101 << 10
+{53}    long  zpu_storesp_N | %0_1111_1011 << 10
+{54}    long  zpu_storesp_N | %0_1111_0111 << 10
+{55}    long  zpu_storesp_N | %0_1110_1111 << 10
+{56}    long  zpu_storesp_N | %0_1101_1111 << 10
+{57}    long  zpu_storesp_N | %0_1011_1111 << 10
+{58}    long  zpu_storesp_N | %0_0111_1111 << 10
+{59}    long  zpu_storesp_hi
+{5A}    long  zpu_storesp_hi
+{5B}    long  zpu_storesp_hi
+{5C}    long  zpu_storesp_hi
+{5D}    long  zpu_storesp_hi
+{5E}    long  zpu_storesp_hi
+{5F}    long  zpu_storesp_hi
+
+{60}    long  zpu_loadsp
+{61}    long  zpu_loadsp
+{62}    long  zpu_loadsp
+{63}    long  zpu_loadsp
+{64}    long  zpu_loadsp
+{65}    long  zpu_loadsp
+{66}    long  zpu_loadsp
+{67}    long  zpu_loadsp
+{68}    long  zpu_loadsp
+{69}    long  zpu_loadsp
+{6A}    long  zpu_loadsp
+{6B}    long  zpu_loadsp
+{6C}    long  zpu_loadsp
+{6D}    long  zpu_loadsp
+{6E}    long  zpu_loadsp
+{6F}    long  zpu_loadsp
+
+{70}    long  zpu_loadsp_tos
+{71}    long  zpu_loadsp_N | %0_1111_1110_0 << 10
+{72}    long  zpu_loadsp_N | %0_1111_1101_0 << 10
+{73}    long  zpu_loadsp_N | %0_1111_1011_0 << 10
+{74}    long  zpu_loadsp_N | %0_1111_0111_0 << 10
+{75}    long  zpu_loadsp_N | %0_1110_1111_0 << 10
+{76}    long  zpu_loadsp_N | %0_1101_1111_0 << 10
+{77}    long  zpu_loadsp_N | %0_1011_1111_0 << 10
+{78}    long  zpu_loadsp_N | %0_0111_1111_0 << 10
+{79}    long  zpu_loadsp_hi
+{7A}    long  zpu_loadsp_hi
+{7B}    long  zpu_loadsp_hi
+{7C}    long  zpu_loadsp_hi
+{7D}    long  zpu_loadsp_hi
+{7E}    long  zpu_loadsp_hi
+{7F}    long  zpu_loadsp_hi
+
+' Normal instruction state
 dispatch_table
 {00}    long  zpu_breakpoint
 {01}    long  zpu_illegal
