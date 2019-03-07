@@ -128,3 +128,8 @@ dhry:       2133/sec
 fibo(8):   43235 cycles
 xxtea:    168964 cycles
 fftbench: 239650 us
+
+--
+tmp: w/o xbyte 1685 dhry/sec
+     w imm change: 1496 -> 1569
+     

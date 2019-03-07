@@ -210,12 +210,20 @@ DAT
 enter                   jmp     #init
 '------------------------------------------------------------------------------
 'Opcode handlers.
-
+PEND_zpu_breakpoint
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_breakpoint          jmp    #break
 
-
+PEND_zpu_addsp_0
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_addsp_0
 	_ret_		add     tos, tos                'Special case for offset = 0
+
+PEND_zpu_addsp_N
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_addsp_N
 			'' use execf mask mechanism to select just one of the below 8
 			rdlong	data, ptrb[1]	       ' only one
@@ -228,15 +236,24 @@ zpu_addsp_N
 			rdlong	data, ptrb[8]		' only one
 	_ret_		add	tos, data		' always execute
 	
+PEND_zpu_addsp
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_addsp               and     pa, #$0F
                         shl     pa, #2
                         add     pa, ptrb
 			rdlong	data, pa
         _ret_           add     tos, data
 
+PEND_zpu_loadsp_tos
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_loadsp_tos
 	_ret_		wrlong	tos, ptrb--
 
+PEND_zpu_loadsp_N
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_loadsp_N
 			wrlong	tos, ptrb--
 			'' use an execf mask to select one of these 8
@@ -250,6 +267,9 @@ zpu_loadsp_N
 	_ret_		rdlong	tos, ptrb[8]
 	_ret_		rdlong	tos, ptrb[9]
 	
+PEND_zpu_loadsp_hi
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_loadsp_hi
                         and     pa, #$0F           'bit 4 was 1...Trust me, you need this.
                         shl     pa, #2
@@ -257,6 +277,9 @@ zpu_loadsp_hi
                         wrlong	tos, ptrb--
         _ret_           rdlong	tos, pa
 
+PEND_zpu_loadsp
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_loadsp              and     pa, #$1F
                         xor     pa, #$10           'Trust me, you need this.
                         shl     pa, #2
@@ -264,9 +287,14 @@ zpu_loadsp              and     pa, #$1F
                         wrlong	tos, ptrb--
         _ret_           rdlong	tos, pa
 
+PEND_zpu_storesp_0
+	_ret_		mov	tos, PendingTos
 zpu_storesp_0
 	_ret_		rdlong	tos, ++ptrb
 
+PEND_zpu_storesp_N
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_storesp_N
 			'' use an EXECF mask to select just one of the wrlongs
 			wrlong	tos,ptrb[1]  	' only one
@@ -279,6 +307,9 @@ zpu_storesp_N
 			wrlong	tos,ptrb[8]	' only one
 	_ret_		rdlong	tos,++ptrb
 
+PEND_zpu_storesp_hi
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_storesp_hi
                         and     pa, #$0F           'bit 4 was 1...Trust me, you need this.
                         shl     pa, #2
@@ -286,6 +317,9 @@ zpu_storesp_hi
 			wrlong	tos, pa
         _ret_           rdlong	tos, ++ptrb wz
 
+PEND_zpu_storesp
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_storesp             and     pa, #$1F
                         xor     pa, #$10           'Trust me, you need this.
                         shl     pa, #2
@@ -293,25 +327,47 @@ zpu_storesp             and     pa, #$1F
 			wrlong	tos, pa
         _ret_           rdlong	tos, ++ptrb wz
 
+PEND_zpu_config
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_config              mov     cpu, tos
        _ret_            rdlong	tos, ++ptrb wz
+
+
+PEND_zpu_pushpc
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 
 zpu_pushpc              wrlong	tos, ptrb--
                         mov     tos, pb
 	_ret_		sub	tos, zpu_memory_addr
 
+PEND_zpu_not
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_not
 	_ret_		xor     tos, minus_one
 
+
+
+PEND_zpu_load
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_load                mov     address, tos wc
 	if_c		jmp	#read_zpu_tos	' special ZPU address emulation
 			add	address, zpu_memory_addr
         _ret_           rdlong  tos, address
 
+PEND_zpu_pushspadd
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_pushspadd           shl     tos, #2
                         add     tos, ptrb
 	_ret_		sub	tos, zpu_memory_addr
 
+PEND_zpu_store
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_store
 			rdlong	data, ++ptrb
                         mov     address, tos wc
@@ -320,63 +376,110 @@ zpu_store
 			add	address, zpu_memory_addr
 	_ret_		wrlong	data, address
 
+PEND_zpu_poppc
+			mov	pb, PendingTos
+			add	pb, zpu_memory_addr
+	_ret_		rdfast	#0, pb
+	
 zpu_poppc               mov     pb, tos
 			add	pb, zpu_memory_addr
                         rdlong	tos, ++ptrb wz
+	_ret_		rdfast	#0, pb		' establish new pc
+
+PEND_zpu_poppcrel
+			add	pb, PendingTos
 	_ret_		rdfast	#0, pb		' establish new pc
 
 zpu_poppcrel            add     pb, tos
 			rdlong	tos, ++ptrb wz
 	_ret_		rdfast	#0, pb		' establish new pc
 
+PEND_zpu_flip
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_flip
 	_ret_		rev     tos
 
+PEND_zpu_pushsp
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_pushsp              wrlong	tos, ptrb--
                         mov     tos, ptrb
                         add     tos, #4
 	_ret_		sub	tos, zpu_memory_addr
 
+
+PEND_zpu_popsp
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_popsp               mov     ptrb, tos
 			add	ptrb, zpu_memory_addr
 	_ret_		rdlong	tos, ptrb
 
+PEND_zpu_nop
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_nop                 ret
 
 			'' common math routines, for SKIPF
 			'' add, and can share
+PEND_zpu_math
+			mov	data, tos
+			mov	tos, PendingTos
 zpu_math
-			rdlong	data, ++ptrb wz
+			rdlong	data, ++ptrb wz         ' SKIP this if PEND
         _ret_           add     tos, data
         _ret_           and     tos, data
         _ret_           or      tos, data
         _ret_           subr    tos, data		' tos = data - tos
         _ret_           xor     tos, data
 
+PEND_zpu_loadb
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_loadb
                         add     tos, zpu_memory_addr
         _ret_           rdbyte  tos, tos
 
+PEND_zpu_storeb
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_storeb
 			rdlong	data, ++ptrb
                         add     tos, zpu_memory_addr
                         wrbyte  data, tos
 	_ret_		rdlong	tos, ++ptrb
 
+PEND_zpu_loadh
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_loadh               add     tos, zpu_memory_addr
 	_ret_		rdword	tos, tos
 
 
+PEND_zpu_storeh
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_storeh              rdlong	data, ++ptrb
 			add	tos, zpu_memory_addr
 			wrword	data, tos
         _ret_           rdlong	tos, ++ptrb
 
+PEND_zpu_lessthan
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_lessthan            rdlong	data, ++ptrb
                         cmps    tos, data wz,wc
                         mov     tos, #0
               _ret_     muxc    tos, #1
 
+
+PEND_zpu_lessthanorequal
+			mov	data, tos
+			mov	tos, PendingTos
+			cmps	data, tos wcz
+			mov	tos, #0
+	_ret_		muxnc	tos, #1
 
 zpu_lessthanorequal     rdlong	data, ++ptrb
                         cmps    data, tos wz,wc
@@ -384,44 +487,81 @@ zpu_lessthanorequal     rdlong	data, ++ptrb
               _ret_     muxnc   tos, #1		' set to 1 if !(data < tos)
 
 
+PEND_zpu_ulessthan
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_ulessthan           rdlong	data, ++ptrb
                         cmp     tos, data wz, wc
                         mov     tos, #0
               _ret_     muxc    tos, #1		' set to 1 if tos < data
 
 
+PEND_zpu_ulessthanorequal
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_ulessthanorequal    rdlong	data, ++ptrb
                         cmp  	data, tos wz, wc
                         mov     tos, #0
               _ret_     muxnc   tos, #1		' set to 1 if ! (data < tos)
 
 
+PEND_zpu_swap
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_swap
 	_ret_		ror     tos, #16
 
+
+
+PEND_zpu_mult16x16
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_mult16x16           rdlong	data, ++ptrb wz
                         and     data, word_mask
                         and     tos, word_mask
                         jmp     #fast_mul
+
+PEND_zpu_eqbranch
+			cmp	tos, #0 wz
+		if_z	add	pb, PendingTos
+		if_z	rdfast	#0, pb
+		_ret_	rdlong	tos, ++ptrb
 
 zpu_eqbranch            rdlong	data, ++ptrb wz
               if_z      add     pb, tos
 	      if_z	rdfast	#0, pb		' establish new pc
               _ret_     rdlong	tos, ++ptrb
 
+PEND_zpu_neqbranch
+			cmp	tos, #0 wz
+		if_nz	add	pb, PendingTos
+		if_nz	rdfast	#0, pb
+		_ret_	rdlong	tos, ++ptrb
+
 zpu_neqbranch           rdlong	data, ++ptrb wz
               if_nz     add     pb, tos
 	      if_nz	rdfast	#0, pb		' establish new pc
               _ret_     rdlong	tos, ++ptrb
 
+PEND_zpu_mult
+			mov	data, tos
+			mov	tos, PendingTos
+			jmp	#fast_mul
+
 zpu_mult                rdlong	data, ++ptrb wz
                         jmp     #fast_mul
 
+PEND_zpu_div
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_div                 rdlong	data, ++ptrb wz
               if_z      jmp     #div_zero_error
                         mov     div_flags, #SPIN_DIV_OP
                         jmp     #fast_div
 
+PEND_zpu_mod
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_mod                 rdlong	data, ++ptrb wz
               if_z      jmp     #div_zero_error
                         mov     div_flags, #SPIN_REM_OP
@@ -431,6 +571,9 @@ zpu_mod                 rdlong	data, ++ptrb wz
 			'' do lshiftright, ashiftleft, ashiftright in that order
 			'' we will use an EXECF mask to select one of the three
 			'' middle opcodes
+PEND_zpu_shiftroutine
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_shiftroutine
 		        rdlong	data, ++ptrb wz
                         shr     data, tos		' only one
@@ -438,7 +581,11 @@ zpu_shiftroutine
                         sar     data, tos		' only one
          _ret_          mov     tos, data
 
-zpu_call                mov     temp, tos
+PEND_zpu_call
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
+zpu_call
+			mov     temp, tos
                         mov     tos, pb
                         add     tos, #1
 			sub	tos, zpu_memory_addr
@@ -446,6 +593,9 @@ zpu_call                mov     temp, tos
 			add	pb, zpu_memory_addr
 	_ret_		rdfast	#0, pb
 
+PEND_zpu_callpcrel
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_callpcrel           mov     temp, tos
                         mov     tos, pb
                         add     tos, #1
@@ -453,21 +603,36 @@ zpu_callpcrel           mov     temp, tos
                         add     pb, temp
 	_ret_		rdfast	#0, pb
 
+PEND_zpu_eq
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_eq                  rdlong	data, ++ptrb
                         cmp     tos, data wz
               		mov     tos, #0
               _ret_     muxz	tos, #1
 
+PEND_zpu_neq
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_neq                 rdlong	data, ++ptrb
                         sub     tos, data wz
               if_nz     mov     tos, #1
 	      		ret
 
+PEND_zpu_neg
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_neg
 		_ret_	neg     tos, tos
 
+PEND_zpu_syscall
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 zpu_syscall             jmp     #syscall
 
+PEND_zpu_illegal
+			wrlong	tos, ptrb--
+			mov	tos, PendingTos
 not_implemented
 zpu_illegal
 div_zero_error
@@ -605,9 +770,8 @@ do_remainder
 '------------------------------------------------------------------------------
 			'' handle im 0-3f
 zpu_im_pos_first
-			wrlong	tos, ptrb--
-			mov	tos, pa
-			and	tos, #$3f
+			mov	PendingTos, pa
+			and	PendingTos, #$3f
 #ifdef USE_XBYTE
         _ret_		setq2	#$100
 #else       
@@ -617,9 +781,8 @@ zpu_im_pos_first
 			'' handle im 40-7f
 imsignextend		long	$FFFFFF80
 zpu_im_neg_first
-                        wrlong	tos, ptrb--
-                        mov     tos, pa
-			or	tos, imsignextend
+                        mov     PendingTos, pa
+			or	PendingTos, imsignextend
 #ifdef USE_XBYTE
         _ret_		setq2	#$100
 #else       
@@ -627,9 +790,9 @@ zpu_im_neg_first
 #endif	
 
 zpu_im_next
-			shl	tos, #7
+			shl	PendingTos, #7
 			and	pa, #$7f
-			or	tos, pa
+			or	PendingTos, pa
 #ifdef USE_XBYTE
 	_ret_		setq2	#$100
 #else
@@ -790,6 +953,7 @@ syscall_external_handler
 
 '------------------------------------------------------------------------------
 ' Big constants
+PendingTos		long 0
 zero			long 0
 minus_one               long $FFFFFFFF
 minus_two               long $FFFFFFFE
@@ -808,141 +972,141 @@ dispatch_table_alternate_ptr
 '------------------------------------------------------------------------------
 ' The instruction dispatch look up table (in HUB)
 dispatch_table_alternate
-{00}    long  zpu_breakpoint
-{01}    long  zpu_illegal
-{02}    long  zpu_pushsp
-{03}    long  zpu_illegal
-{04}    long  zpu_poppc
-{05}    long  zpu_math | %0_0000_0 << 10		' add
-{06}    long  zpu_math | %0_0001_0 << 10		' and
-{07}    long  zpu_math | %0_0011_0 << 10		' or
-{08}    long  zpu_load
-{09}    long  zpu_not
-{0A}    long  zpu_flip
-{0B}    long  zpu_nop
-{0C}    long  zpu_store
-{0D}    long  zpu_popsp
-{0E}    long  zpu_illegal
-{0F}    long  zpu_illegal
+{00}    long  PEND_zpu_breakpoint
+{01}    long  PEND_zpu_illegal
+{02}    long  PEND_zpu_pushsp
+{03}    long  PEND_zpu_illegal
+{04}    long  PEND_zpu_poppc
+{05}    long  PEND_zpu_math | %0_0000_100 << 10		' add
+{06}    long  PEND_zpu_math | %0_0001_100 << 10		' and
+{07}    long  PEND_zpu_math | %0_0011_100 << 10		' or
+{08}    long  PEND_zpu_load
+{09}    long  PEND_zpu_not
+{0A}    long  PEND_zpu_flip
+{0B}    long  PEND_zpu_nop
+{0C}    long  PEND_zpu_store
+{0D}    long  PEND_zpu_popsp
+{0E}    long  PEND_zpu_illegal
+{0F}    long  PEND_zpu_illegal
 
-{10}    long  zpu_addsp_0
-{11}    long  zpu_addsp_N | %0_1111_1110 << 10
-{12}    long  zpu_addsp_N | %0_1111_1101 << 10
-{13}    long  zpu_addsp_N | %0_1111_1011 << 10
-{14}    long  zpu_addsp_N | %0_1111_0111 << 10
-{15}    long  zpu_addsp_N | %0_1110_1111 << 10
-{16}    long  zpu_addsp_N | %0_1101_1111 << 10
-{17}    long  zpu_addsp_N | %0_1011_1111 << 10
-{18}    long  zpu_addsp_N | %0_0111_1111 << 10
-{19}    long  zpu_addsp
-{1A}    long  zpu_addsp
-{1B}    long  zpu_addsp
-{1C}    long  zpu_addsp
-{1D}    long  zpu_addsp
-{1E}    long  zpu_addsp
-{1F}    long  zpu_addsp
+{10}    long  PEND_zpu_addsp_0
+{11}    long  PEND_zpu_addsp_N | %0_1111_1110_00 << 10
+{12}    long  PEND_zpu_addsp_N | %0_1111_1101_00 << 10
+{13}    long  PEND_zpu_addsp_N | %0_1111_1011_00 << 10
+{14}    long  PEND_zpu_addsp_N | %0_1111_0111_00 << 10
+{15}    long  PEND_zpu_addsp_N | %0_1110_1111_00 << 10
+{16}    long  PEND_zpu_addsp_N | %0_1101_1111_00 << 10
+{17}    long  PEND_zpu_addsp_N | %0_1011_1111_00 << 10
+{18}    long  PEND_zpu_addsp_N | %0_0111_1111_00 << 10
+{19}    long  PEND_zpu_addsp
+{1A}    long  PEND_zpu_addsp
+{1B}    long  PEND_zpu_addsp
+{1C}    long  PEND_zpu_addsp
+{1D}    long  PEND_zpu_addsp
+{1E}    long  PEND_zpu_addsp
+{1F}    long  PEND_zpu_addsp
 
-{20}    long  not_implemented' zpu_emulate
-{21}    long  not_implemented' zpu_emulate
-{22}    long  zpu_loadh
-{23}    long  zpu_storeh
-{24}    long  zpu_lessthan
-{25}    long  zpu_lessthanorequal
-{26}    long  zpu_ulessthan
-{27}    long  zpu_ulessthanorequal
-{28}    long  zpu_swap
-{29}    long  zpu_mult
-{2A}    long  zpu_shiftroutine | %0_110_0 << 10	' shr
-{2B}    long  zpu_shiftroutine | %0_101_0 << 10	' shl
-{2C}    long  zpu_shiftroutine | %0_011_0 << 10 ' sar
-{2D}    long  zpu_call
-{2E}    long  zpu_eq
-{2F}    long  zpu_neq
+{20}    long  PEND_zpu_illegal 'not_implemented' zpu_emulate
+{21}    long  PEND_zpu_illegal 'not_implemented' zpu_emulate
+{22}    long  PEND_zpu_loadh
+{23}    long  PEND_zpu_storeh
+{24}    long  PEND_zpu_lessthan
+{25}    long  PEND_zpu_lessthanorequal
+{26}    long  PEND_zpu_ulessthan
+{27}    long  PEND_zpu_ulessthanorequal
+{28}    long  PEND_zpu_swap
+{29}    long  PEND_zpu_mult
+{2A}    long  PEND_zpu_shiftroutine | %0_110_0_00 << 10	' shr
+{2B}    long  PEND_zpu_shiftroutine | %0_101_0_00 << 10	' shl
+{2C}    long  PEND_zpu_shiftroutine | %0_011_0_00 << 10 ' sar
+{2D}    long  PEND_zpu_call
+{2E}    long  PEND_zpu_eq
+{2F}    long  PEND_zpu_neq
 
-{30}    long  zpu_neg
-{31}    long  zpu_math | %0_0111_0 << 10    ' sub
-{32}    long  zpu_math | %0_1111_0 << 10    ' xor
-{33}    long  zpu_loadb
-{34}    long  zpu_storeb
-{35}    long  zpu_div
-{36}    long  zpu_mod
-{37}    long  zpu_eqbranch
-{38}    long  zpu_neqbranch
-{39}    long  zpu_poppcrel
-{3A}    long  zpu_config
-{3B}    long  zpu_pushpc
-{3C}    long  zpu_syscall
-{3D}    long  zpu_pushspadd
-{3E}    long  zpu_mult16x16
-{3F}    long  zpu_callpcrel
+{30}    long  PEND_zpu_neg
+{31}    long  PEND_zpu_math | %0_0111_1_00 << 10    ' sub
+{32}    long  PEND_zpu_math | %0_1111_1_00 << 10    ' xor
+{33}    long  PEND_zpu_loadb
+{34}    long  PEND_zpu_storeb
+{35}    long  PEND_zpu_div
+{36}    long  PEND_zpu_mod
+{37}    long  PEND_zpu_eqbranch
+{38}    long  PEND_zpu_neqbranch
+{39}    long  PEND_zpu_poppcrel
+{3A}    long  PEND_zpu_config
+{3B}    long  PEND_zpu_pushpc
+{3C}    long  PEND_zpu_syscall
+{3D}    long  PEND_zpu_pushspadd
+{3E}    long  PEND_zpu_mult16x16
+{3F}    long  PEND_zpu_callpcrel
 
-{40}    long  zpu_storesp
-{41}    long  zpu_storesp
-{42}    long  zpu_storesp
-{43}    long  zpu_storesp
-{44}    long  zpu_storesp
-{45}    long  zpu_storesp
-{46}    long  zpu_storesp
-{47}    long  zpu_storesp
-{48}    long  zpu_storesp
-{49}    long  zpu_storesp
-{4A}    long  zpu_storesp
-{4B}    long  zpu_storesp
-{4C}    long  zpu_storesp
-{4D}    long  zpu_storesp
-{4E}    long  zpu_storesp
-{4F}    long  zpu_storesp
+{40}    long  PEND_zpu_storesp
+{41}    long  PEND_zpu_storesp
+{42}    long  PEND_zpu_storesp
+{43}    long  PEND_zpu_storesp
+{44}    long  PEND_zpu_storesp
+{45}    long  PEND_zpu_storesp
+{46}    long  PEND_zpu_storesp
+{47}    long  PEND_zpu_storesp
+{48}    long  PEND_zpu_storesp
+{49}    long  PEND_zpu_storesp
+{4A}    long  PEND_zpu_storesp
+{4B}    long  PEND_zpu_storesp
+{4C}    long  PEND_zpu_storesp
+{4D}    long  PEND_zpu_storesp
+{4E}    long  PEND_zpu_storesp
+{4F}    long  PEND_zpu_storesp
 
-{50}    long  zpu_storesp_0
-{51}    long  zpu_storesp_N | %0_1111_1110 << 10
-{52}    long  zpu_storesp_N | %0_1111_1101 << 10
-{53}    long  zpu_storesp_N | %0_1111_1011 << 10
-{54}    long  zpu_storesp_N | %0_1111_0111 << 10
-{55}    long  zpu_storesp_N | %0_1110_1111 << 10
-{56}    long  zpu_storesp_N | %0_1101_1111 << 10
-{57}    long  zpu_storesp_N | %0_1011_1111 << 10
-{58}    long  zpu_storesp_N | %0_0111_1111 << 10
-{59}    long  zpu_storesp_hi
-{5A}    long  zpu_storesp_hi
-{5B}    long  zpu_storesp_hi
-{5C}    long  zpu_storesp_hi
-{5D}    long  zpu_storesp_hi
-{5E}    long  zpu_storesp_hi
-{5F}    long  zpu_storesp_hi
+{50}    long  PEND_zpu_storesp_0
+{51}    long  PEND_zpu_storesp_N | %0_1111_1110_00 << 10
+{52}    long  PEND_zpu_storesp_N | %0_1111_1101_00 << 10
+{53}    long  PEND_zpu_storesp_N | %0_1111_1011_00 << 10
+{54}    long  PEND_zpu_storesp_N | %0_1111_0111_00 << 10
+{55}    long  PEND_zpu_storesp_N | %0_1110_1111_00 << 10
+{56}    long  PEND_zpu_storesp_N | %0_1101_1111_00 << 10
+{57}    long  PEND_zpu_storesp_N | %0_1011_1111_00 << 10
+{58}    long  PEND_zpu_storesp_N | %0_0111_1111_00 << 10
+{59}    long  PEND_zpu_storesp_hi
+{5A}    long  PEND_zpu_storesp_hi
+{5B}    long  PEND_zpu_storesp_hi
+{5C}    long  PEND_zpu_storesp_hi
+{5D}    long  PEND_zpu_storesp_hi
+{5E}    long  PEND_zpu_storesp_hi
+{5F}    long  PEND_zpu_storesp_hi
 
-{60}    long  zpu_loadsp
-{61}    long  zpu_loadsp
-{62}    long  zpu_loadsp
-{63}    long  zpu_loadsp
-{64}    long  zpu_loadsp
-{65}    long  zpu_loadsp
-{66}    long  zpu_loadsp
-{67}    long  zpu_loadsp
-{68}    long  zpu_loadsp
-{69}    long  zpu_loadsp
-{6A}    long  zpu_loadsp
-{6B}    long  zpu_loadsp
-{6C}    long  zpu_loadsp
-{6D}    long  zpu_loadsp
-{6E}    long  zpu_loadsp
-{6F}    long  zpu_loadsp
+{60}    long  PEND_zpu_loadsp
+{61}    long  PEND_zpu_loadsp
+{62}    long  PEND_zpu_loadsp
+{63}    long  PEND_zpu_loadsp
+{64}    long  PEND_zpu_loadsp
+{65}    long  PEND_zpu_loadsp
+{66}    long  PEND_zpu_loadsp
+{67}    long  PEND_zpu_loadsp
+{68}    long  PEND_zpu_loadsp
+{69}    long  PEND_zpu_loadsp
+{6A}    long  PEND_zpu_loadsp
+{6B}    long  PEND_zpu_loadsp
+{6C}    long  PEND_zpu_loadsp
+{6D}    long  PEND_zpu_loadsp
+{6E}    long  PEND_zpu_loadsp
+{6F}    long  PEND_zpu_loadsp
 
-{70}    long  zpu_loadsp_tos
-{71}    long  zpu_loadsp_N | %0_1111_1110_0 << 10
-{72}    long  zpu_loadsp_N | %0_1111_1101_0 << 10
-{73}    long  zpu_loadsp_N | %0_1111_1011_0 << 10
-{74}    long  zpu_loadsp_N | %0_1111_0111_0 << 10
-{75}    long  zpu_loadsp_N | %0_1110_1111_0 << 10
-{76}    long  zpu_loadsp_N | %0_1101_1111_0 << 10
-{77}    long  zpu_loadsp_N | %0_1011_1111_0 << 10
-{78}    long  zpu_loadsp_N | %0_0111_1111_0 << 10
-{79}    long  zpu_loadsp_hi
-{7A}    long  zpu_loadsp_hi
-{7B}    long  zpu_loadsp_hi
-{7C}    long  zpu_loadsp_hi
-{7D}    long  zpu_loadsp_hi
-{7E}    long  zpu_loadsp_hi
-{7F}    long  zpu_loadsp_hi
+{70}    long  PEND_zpu_loadsp_tos
+{71}    long  PEND_zpu_loadsp_N | %0_1111_1110_000 << 10
+{72}    long  PEND_zpu_loadsp_N | %0_1111_1101_000 << 10
+{73}    long  PEND_zpu_loadsp_N | %0_1111_1011_000 << 10
+{74}    long  PEND_zpu_loadsp_N | %0_1111_0111_000 << 10
+{75}    long  PEND_zpu_loadsp_N | %0_1110_1111_000 << 10
+{76}    long  PEND_zpu_loadsp_N | %0_1101_1111_000 << 10
+{77}    long  PEND_zpu_loadsp_N | %0_1011_1111_000 << 10
+{78}    long  PEND_zpu_loadsp_N | %0_0111_1111_000 << 10
+{79}    long  PEND_zpu_loadsp_hi
+{7A}    long  PEND_zpu_loadsp_hi
+{7B}    long  PEND_zpu_loadsp_hi
+{7C}    long  PEND_zpu_loadsp_hi
+{7D}    long  PEND_zpu_loadsp_hi
+{7E}    long  PEND_zpu_loadsp_hi
+{7F}    long  PEND_zpu_loadsp_hi
 
 ' Normal instruction state
 dispatch_table
