@@ -143,6 +143,12 @@
 ' define USE_CORDIC_MULDIV to use P2 qmul and qdiv
 #define USE_CORDIC_MULDIV
 
+#ifdef USE_XBYTE
+#define RET_UPDATE_JMP_TABLE  _ret_ setq
+#else
+#define RET_UPDATE_JMP_TABLE _ret_ mov jmp_table_base,
+#endif
+
 CON
 ' These are the SPIN byte codes for mul and div
 SPIN_DIV_OP     = 0 '$F6  '(divide, return quotient 32 bits)
@@ -772,32 +778,20 @@ do_remainder
 zpu_im_pos_first
 			mov	PendingTos, pa
 			and	PendingTos, #$3f
-#ifdef USE_XBYTE
-        _ret_		setq2	#$100
-#else       
-	_ret_		mov	jmp_table_base, #$100	' use new jump table for next instruction
-#endif	
+			RET_UPDATE_JMP_TABLE #$100
 
 			'' handle im 40-7f
 imsignextend		long	$FFFFFF80
 zpu_im_neg_first
                         mov     PendingTos, pa
 			or	PendingTos, imsignextend
-#ifdef USE_XBYTE
-        _ret_		setq2	#$100
-#else       
-	_ret_		mov	jmp_table_base, #$100	' use new jump table for next instruction
-#endif	
+			RET_UPDATE_JMP_TABLE #$100
 
 zpu_im_next
 			shl	PendingTos, #7
 			and	pa, #$7f
 			or	PendingTos, pa
-#ifdef USE_XBYTE
-	_ret_		setq2	#$100
-#else
-	_ret_		mov	jmp_table_base, #$100
-#endif
+			RET_UPDATE_JMP_TABLE #$100
 
 '------------------------------------------------------------------------------
 
@@ -811,14 +805,15 @@ exec_non_im
 #ifdef SINGLE_STEP
                         call    #break
 #endif
-#ifndef USE_XBYTE
-
+#ifdef USE_XBYTE
+			jmp	#restart_xbyte
+#else
 			push	#next_instruction
 			add	pa, jmp_table_base
 			mov	jmp_table_base, #0
-#endif
 			rdlut	temp, pa
                         execf   temp                    'No # here we are jumping through temp.
+#endif
 
 '------------------------------------------------------------------------------
 
