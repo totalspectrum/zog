@@ -138,7 +138,7 @@
 '#define SINGLE_STEP
 
 ' define USE_XBYTE to use P2 xbyte execution mechanism
-'#define USE_XBYTE
+#define USE_XBYTE
 
 ' use an inline loop for reading immediate values,
 ' instead of relying on XBYTE setq2
@@ -835,7 +835,7 @@ exec_non_im
 			rdlut	temp, pa
 			execf	temp
 			getptr	pb
-			jmp	#restart_xbyte_loop
+			jmp	#restart_xbyte
 #else
 			push	#next_instruction
 			add	pa, jmp_table_base
