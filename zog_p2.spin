@@ -138,19 +138,18 @@
 '#define SINGLE_STEP
 
 ' define USE_XBYTE to use P2 xbyte execution mechanism
-#define USE_XBYTE
-
-' use an inline loop for reading immediate values,
-' instead of relying on XBYTE setq2
-#define USE_IMMEDIATE_LOOP
+'#define USE_XBYTE
 
 ' define USE_CORDIC_MULDIV to use P2 qmul and qdiv
 #define USE_CORDIC_MULDIV
 
 #ifdef USE_XBYTE
-#define RET_UPDATE_JMP_TABLE  _ret_ setq2
+#define RET_START_ALTERNATE      _ret_ setq2  #$100
+#define RET_CONTINUE_ALTERNATE   _ret_ setq2  #$100
 #else
-#define RET_UPDATE_JMP_TABLE _ret_ mov jmp_table_base,
+#define RET_START_ALTERNATE     _ret_ mov jmp_table_base, #$100
+#define RET_CONTINUE_ALTERNATE  _ret_ mov jmp_table_base, #$100
+#define RESTORE_JMP_TABLE       mov jmp_table_base, #0
 #endif
 
 CON
@@ -349,6 +348,7 @@ PEND_zpu_pushpc
 			mov	tos, PendingTos
 
 zpu_pushpc              wrlong	tos, ptrb--
+			sub	pb, #1
                         mov     tos, pb
 	_ret_		sub	tos, zpu_memory_addr
 
@@ -397,10 +397,13 @@ zpu_poppc               mov     pb, tos
 	_ret_		rdfast	#0, pb		' establish new pc
 
 PEND_zpu_poppcrel
+			sub	pb, #1
 			add	pb, PendingTos
 	_ret_		rdfast	#0, pb		' establish new pc
 
-zpu_poppcrel            add     pb, tos
+zpu_poppcrel
+			sub	pb, #1
+			add     pb, tos
 			rdlong	tos, ++ptrb wz
 	_ret_		rdfast	#0, pb		' establish new pc
 
@@ -533,22 +536,26 @@ zpu_mult16x16           rdlong	data, ++ptrb wz
 
 PEND_zpu_eqbranch
 			cmp	tos, #0 wz
+			sub	pb, #1
 		if_z	add	pb, PendingTos
 		if_z	rdfast	#0, pb
 		_ret_	rdlong	tos, ++ptrb
 
 zpu_eqbranch            rdlong	data, ++ptrb wz
+			sub	pb, #1
               if_z      add     pb, tos
 	      if_z	rdfast	#0, pb		' establish new pc
               _ret_     rdlong	tos, ++ptrb
 
 PEND_zpu_neqbranch
 			cmp	tos, #0 wz
+			sub	pb, #1
 		if_nz	add	pb, PendingTos
 		if_nz	rdfast	#0, pb
 		_ret_	rdlong	tos, ++ptrb
 
 zpu_neqbranch           rdlong	data, ++ptrb wz
+			sub	pb, #1
               if_nz     add     pb, tos
 	      if_nz	rdfast	#0, pb		' establish new pc
               _ret_     rdlong	tos, ++ptrb
@@ -597,7 +604,6 @@ PEND_zpu_call
 zpu_call
 			mov     temp, tos
                         mov     tos, pb
-                        add     tos, #1
 			sub	tos, zpu_memory_addr
                         mov     pb, temp
 			add	pb, zpu_memory_addr
@@ -608,8 +614,8 @@ PEND_zpu_callpcrel
 			mov	tos, PendingTos
 zpu_callpcrel           mov     temp, tos
                         mov     tos, pb
-                        add     tos, #1
 			sub	tos, zpu_memory_addr
+			sub	pb, #1
                         add     pb, temp
 	_ret_		rdfast	#0, pb
 
@@ -782,65 +788,50 @@ do_remainder
 zpu_im_pos_first
 			mov	PendingTos, pa
 			and	PendingTos, #$3f
-#ifdef USE_IMMEDIATE_LOOP
-#ifndef USE_XBYTE
-			mov	jmp_table_base, #$100
-#endif			
-imloop
-			getptr	pb
-			rfbyte	pa
-			cmpsub	pa, #$80 wc	' remove the 80 if it is present
-	if_nc		jmp	#exec_non_im
-			shl	PendingTos, #7
-			or	PendingTos, pa
-			jmp	#imloop
-#else
-			RET_UPDATE_JMP_TABLE #$100
-#endif
-			'' handle im 40-7f
+			RET_START_ALTERNATE
+
+'' handle im 40-7f
 imsignextend		long	$FFFFFF80
 zpu_im_neg_first
                         mov     PendingTos, pa
 			or	PendingTos, imsignextend
-#ifdef USE_IMMEDIATE_LOOP
-#ifndef USE_XBYTE
-			mov	jmp_table_base, #$100
-#endif			
-			jmp	#imloop
-#else			
-			RET_UPDATE_JMP_TABLE #$100
-#endif
+			RET_START_ALTERNATE
+
 zpu_im_next
 			shl	PendingTos, #7
 			and	pa, #$7f
 			or	PendingTos, pa
-			RET_UPDATE_JMP_TABLE #$100
+			RET_CONTINUE_ALTERNATE
 
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' Main ZPU fetch and execute loop
-next_instruction
-			getptr	pb
-			rfbyte	pa			'Some opcodes contain address offsets
-
-exec_non_im
-#ifdef SINGLE_STEP
-                        call    #break
-#endif
+main_loop
 #ifdef USE_XBYTE
-			' we will only get here via an explicit jump from the
-			' code to handle immediates
-			add	pa, #$100	' use alternate instruction table
-			rdlut	temp, pa
-			execf	temp
-			getptr	pb
-			jmp	#restart_xbyte
+			rdfast	#0, pb
+			'' start up the xbyte loop
+			push	 #$1ff
+	_ret_		setq	 #$0		' 256 long execf table
+			jmp	 #main_loop	' should never get here
+
+			' padding to make the code the same size
+			nop
+			nop
+			nop
+			nop
+			nop
 #else
+			rdfast	#0, pb
+next_instruction
+			rfbyte	pa			'Some opcodes contain address offsets
+			getptr	pb
+
 			push	#next_instruction
-			add	pa, jmp_table_base
-			mov	jmp_table_base, #0
-			rdlut	temp, pa
+			mov	temp, pa
+			add	temp, jmp_table_base
+			RESTORE_JMP_TABLE
+			rdlut	temp, temp
                         execf   temp                    'No # here we are jumping through temp.
 #endif
 
@@ -917,17 +908,7 @@ debug_addr              mov     debug_addr, temp     'HUB address of debug regis
 .lp4			wrlut	data, address
 			add	address, #1
 			djnz	temp, #.lp4
-#ifdef USE_XBYTE
-restart_xbyte
-			rdfast	#0, pb
-			'' start up the xbyte loop
-			push	 #$1ff
-	_ret_		setq	 #$0		' 256 long execf table
-			jmp	 #restart_xbyte
-#else
-			rdfast	#0, pb
-			jmp	#next_instruction
-#endif
+			jmp	#main_loop
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
