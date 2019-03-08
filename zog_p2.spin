@@ -631,23 +631,19 @@ zpu_callpcrel           mov     temp, tos
 
 PEND_zpu_eq
                         cmp     tos, PendingTos wz
-              		mov     tos, #0
-              _ret_     muxz	tos, #1
+              _ret_	wrz	tos
 
 zpu_eq                  rdlong	data, ++ptrb
                         cmp     tos, data wz
-              		mov     tos, #0
-              _ret_     muxz	tos, #1
+              _ret_	wrz	tos
 
 PEND_zpu_neq
                         cmp     tos, PendingTos wz
-              		mov     tos, #0
-              _ret_     muxnz	tos, #1
+              _ret_     wrnz	tos
 
 zpu_neq                 rdlong	data, ++ptrb
-                        sub     tos, data wz
-              if_nz     mov     tos, #1
-	      		ret
+                        cmp     tos, data wz
+              _ret_     wrnz     tos
 
 PEND_zpu_neg
 			wrlong	tos, ptrb--
