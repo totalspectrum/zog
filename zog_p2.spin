@@ -486,43 +486,40 @@ zpu_storeh              rdlong	data, ++ptrb
         _ret_           rdlong	tos, ++ptrb
 
 PEND_zpu_lessthan
-			wrlong	tos, ptrb--
-			mov	tos, PendingTos
+			cmps	PendingTos, tos wz, wc
+		_ret_   wrc	tos
+		
 zpu_lessthan            rdlong	data, ++ptrb
                         cmps    tos, data wz,wc
-                        mov     tos, #0
-              _ret_     muxc    tos, #1
+              _ret_     wrc     tos
 
 
 PEND_zpu_lessthanorequal
-			mov	data, tos
-			mov	tos, PendingTos
-			cmps	data, tos wcz
-			mov	tos, #0
-	_ret_		muxnc	tos, #1
+			cmps	tos, PendingTos wcz
+	_ret_		wrnc	tos
 
-zpu_lessthanorequal     rdlong	data, ++ptrb
+zpu_lessthanorequal
+			rdlong	data, ++ptrb
                         cmps    data, tos wz,wc
-                        mov     tos, #0
-              _ret_     muxnc   tos, #1		' set to 1 if !(data < tos)
+              _ret_     wrnc   tos		' set to 1 if !(data < tos)
 
 
 PEND_zpu_ulessthan
-			wrlong	tos, ptrb--
-			mov	tos, PendingTos
+                        cmp     PendingTos, tos wz, wc
+              _ret_     wrc    tos		' set to 1 if tos < data
 zpu_ulessthan           rdlong	data, ++ptrb
                         cmp     tos, data wz, wc
-                        mov     tos, #0
-              _ret_     muxc    tos, #1		' set to 1 if tos < data
+              _ret_     wrc    tos		' set to 1 if tos < data
 
 
 PEND_zpu_ulessthanorequal
-			wrlong	tos, ptrb--
-			mov	tos, PendingTos
-zpu_ulessthanorequal    rdlong	data, ++ptrb
+                        cmp  	tos, PendingTos wz, wc
+              _ret_     wrnc   tos		' set to 1 if ! (data < tos)
+
+zpu_ulessthanorequal
+			rdlong	data, ++ptrb
                         cmp  	data, tos wz, wc
-                        mov     tos, #0
-              _ret_     muxnc   tos, #1		' set to 1 if ! (data < tos)
+              _ret_     wrnc   tos		' set to 1 if ! (data < tos)
 
 
 PEND_zpu_swap
