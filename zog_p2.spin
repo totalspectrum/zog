@@ -138,7 +138,7 @@
 '#define SINGLE_STEP
 
 ' define USE_XBYTE to use P2 xbyte execution mechanism
-'#define USE_XBYTE
+#define USE_XBYTE
 
 ' define USE_CORDIC_MULDIV to use P2 qmul and qdiv
 #define USE_CORDIC_MULDIV

@@ -137,3 +137,8 @@ with xbyte + imm loop:
 dhry:       2213
 xxtea:    194544
 fftbench: 280177
+
+with new xbyte:
+dhry:       2490
+xxtea:    179680
+fftbench: 263688
