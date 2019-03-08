@@ -436,9 +436,16 @@ zpu_nop                 ret
 
 			'' common math routines, for SKIPF
 			'' add, and can share
-PEND_zpu_math
-			mov	data, tos
-			mov	tos, PendingTos
+PEND_zpu_add
+        _ret_           add     tos, PendingTos
+PEND_zpu_and
+        _ret_           and     tos, PendingTos
+PEND_zpu_or	
+        _ret_           or      tos, PendingTos
+PEND_zpu_sub
+        _ret_           sub    tos, PendingTos
+PEND_zpu_xor	
+        _ret_           xor     tos, PendingTos
 zpu_math
 			rdlong	data, ++ptrb wz         ' SKIP this if PEND
         _ret_           add     tos, data
@@ -982,9 +989,9 @@ dispatch_table_alternate
 {02}    long  PEND_zpu_pushsp
 {03}    long  PEND_zpu_illegal
 {04}    long  PEND_zpu_poppc
-{05}    long  PEND_zpu_math | %0_0000_100 << 10		' add
-{06}    long  PEND_zpu_math | %0_0001_100 << 10		' and
-{07}    long  PEND_zpu_math | %0_0011_100 << 10		' or
+{05}    long  PEND_zpu_add
+{06}    long  PEND_zpu_and
+{07}    long  PEND_zpu_or
 {08}    long  PEND_zpu_load
 {09}    long  PEND_zpu_not
 {0A}    long  PEND_zpu_flip
@@ -1029,8 +1036,8 @@ dispatch_table_alternate
 {2F}    long  PEND_zpu_neq
 
 {30}    long  PEND_zpu_neg
-{31}    long  PEND_zpu_math | %0_0111_1_00 << 10    ' sub
-{32}    long  PEND_zpu_math | %0_1111_1_00 << 10    ' xor
+{31}    long  PEND_zpu_sub
+{32}    long  PEND_zpu_xor
 {33}    long  PEND_zpu_loadb
 {34}    long  PEND_zpu_storeb
 {35}    long  PEND_zpu_div
