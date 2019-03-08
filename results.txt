@@ -133,3 +133,7 @@ fftbench: 239650 us
 tmp: w/o xbyte 1685 dhry/sec
      w imm change: 1496 -> 1569
      
+with xbyte + imm loop:
+dhry:       2213
+xxtea:    194544
+fftbench: 280177
