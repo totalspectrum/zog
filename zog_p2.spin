@@ -534,8 +534,8 @@ zpu_swap
 
 
 PEND_zpu_mult16x16
-			wrlong	tos, ptrb--
-			mov	tos, PendingTos
+	_ret_		mul	tos, PendingTos
+
 zpu_mult16x16           rdlong	data, ++ptrb wz
                         and     data, word_mask
                         and     tos, word_mask
@@ -568,8 +568,7 @@ zpu_neqbranch           rdlong	data, ++ptrb wz
               _ret_     rdlong	tos, ++ptrb
 
 PEND_zpu_mult
-			mov	data, tos
-			mov	tos, PendingTos
+			mov	data, PendingTos
 			jmp	#fast_mul
 
 zpu_mult                rdlong	data, ++ptrb wz
@@ -595,9 +594,13 @@ zpu_mod                 rdlong	data, ++ptrb wz
 			'' do lshiftright, ashiftleft, ashiftright in that order
 			'' we will use an EXECF mask to select one of the three
 			'' middle opcodes
-PEND_zpu_shiftroutine
-			wrlong	tos, ptrb--
-			mov	tos, PendingTos
+PEND_zpu_shr
+	_ret_		shr	tos, PendingTos
+PEND_zpu_shl
+	_ret_		shl	tos, PendingTos
+PEND_zpu_sar
+	_ret_		sar	tos, PendingTos
+
 zpu_shiftroutine
 		        rdlong	data, ++ptrb wz
                         shr     data, tos		' only one
@@ -627,16 +630,20 @@ zpu_callpcrel           mov     temp, tos
 	_ret_		rdfast	#0, pb
 
 PEND_zpu_eq
-			wrlong	tos, ptrb--
-			mov	tos, PendingTos
+                        cmp     tos, PendingTos wz
+              		mov     tos, #0
+              _ret_     muxz	tos, #1
+
 zpu_eq                  rdlong	data, ++ptrb
                         cmp     tos, data wz
               		mov     tos, #0
               _ret_     muxz	tos, #1
 
 PEND_zpu_neq
-			wrlong	tos, ptrb--
-			mov	tos, PendingTos
+                        cmp     tos, PendingTos wz
+              		mov     tos, #0
+              _ret_     muxnz	tos, #1
+
 zpu_neq                 rdlong	data, ++ptrb
                         sub     tos, data wz
               if_nz     mov     tos, #1
@@ -823,11 +830,6 @@ main_loop
 			jmp	 #main_loop	' should never get here
 
 			' padding to make the code the same size
-			nop
-			nop
-			nop
-			nop
-			nop
 #else
 			rdfast	#0, pb
 next_instruction
@@ -1028,9 +1030,9 @@ dispatch_table_alternate
 {27}    long  PEND_zpu_ulessthanorequal
 {28}    long  PEND_zpu_swap
 {29}    long  PEND_zpu_mult
-{2A}    long  PEND_zpu_shiftroutine | %0_110_0_00 << 10	' shr
-{2B}    long  PEND_zpu_shiftroutine | %0_101_0_00 << 10	' shl
-{2C}    long  PEND_zpu_shiftroutine | %0_011_0_00 << 10 ' sar
+{2A}    long  PEND_zpu_shr
+{2B}    long  PEND_zpu_shl
+{2C}    long  PEND_zpu_sar
 {2D}    long  PEND_zpu_call
 {2E}    long  PEND_zpu_eq
 {2F}    long  PEND_zpu_neq

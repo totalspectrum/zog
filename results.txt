@@ -142,3 +142,8 @@ with new xbyte:
 dhry:       2490
 xxtea:    179680
 fftbench: 263688
+
+with optimized math:
+dhry:       2532
+xxtea:    166944
+fftbench: 250819
