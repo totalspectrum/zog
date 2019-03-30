@@ -7,11 +7,8 @@ fftbench (text in fftbench.o):     1243
 ============================================================================
 
 xxtea:
-zog  970128 -> 885696 little endian
-L2   851840 -> 835968 with binaryop improvement
-            -> 823424 at cache 0
-	    -> 442016 with double cache (??)
-	    -> 679168 little endian
+p1emu: 885504 cycles
+p1jit: 693904 cycles
 	    
 fibo(8):
 zog  220064 -> 205584 with little endian
@@ -31,6 +28,10 @@ P1 dhry:
 
 zog 1.6: 436 dhrystones/sec
 zog JIT: 490 dhrystones/sec
+
+newest:
+zog:     481 dhrystones/sec
+p1 JIT:  ???
 
 ==================================================
 P2:

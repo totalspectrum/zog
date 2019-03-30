@@ -233,13 +233,20 @@ UART_RX_PORT  = $80000028
 
 OBJ
 #ifdef __P2__
+#ifdef USE_JIT
+  zog  : "jit_p2"
+#else  
   zog  : "zog_p2"
+#endif  
   ser  : "SimpleSerial"
 #else
+#ifdef USE_JIT
+  zog  : "zog_jit"
+#else
   zog  : "zog"
+#endif  
   ser  : "FullDuplexSerialPlus"
 #endif
-'  zog  : "zog_jit"
 #ifdef USE_JCACHED_MEMORY
   sd   : "fsrwFemto_rr001"                          'SD Software used in FemtoBASIC
   cm   : "SdramCache"                               'sdram cache interface
