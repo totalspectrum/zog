@@ -180,7 +180,7 @@ zpu_memory_size = (64 * 1024)                            'The size of ZPU memory
 #endif
 #ifdef USE_HUB_MEMORY
 #ifdef __P2__
-zpu_memory_size = (128 * 1024)                            'The size of ZPU memory area
+zpu_memory_size = (64 * 1024)                            'The size of ZPU memory area
 #else
 zpu_memory_size = (20 * 1024)                            'The size of ZPU memory area
 #endif
@@ -238,7 +238,7 @@ OBJ
 #else  
   zog  : "zog_p2"
 #endif  
-  ser  : "SimpleSerial"
+  ser  : "spin/SmartSerial"
 #else
 #ifdef USE_JIT
   zog  : "zog_jit"
