@@ -179,11 +179,7 @@ zpu_memory_size = (1 << 25)                              'The size of ZPU memory
 zpu_memory_size = (64 * 1024)                            'The size of ZPU memory area
 #endif
 #ifdef USE_HUB_MEMORY
-#ifdef __P2__
-zpu_memory_size = (64 * 1024)                            'The size of ZPU memory area
-#else
 zpu_memory_size = (20 * 1024)                            'The size of ZPU memory area
-#endif
 #endif
 ' These are the SPIN byte codes for mul and div
 SPIN_MUL_OP     = $F4  '(multiply, return lower 32 bits)
@@ -375,7 +371,11 @@ PUB start : okay | n
   par_vm_mbox_addr := @vm_mbox
 #endif
 
-  zog.start(@par_zpu_memory_addr)                           'Start ZOG with parameter block
+  cog := zog.start(@par_zpu_memory_addr)                    'Start ZOG with parameter block
+  ser.str(string("Started cog "))
+  ser.dec(cog)
+  ser.str(string(13, 10))
+  
   service_io                                                'Go any monitor ZPU I/O
 
 #ifdef USE_JCACHED_MEMORY

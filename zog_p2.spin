@@ -202,7 +202,7 @@ WRITEVML      = 135 'Write a long to VMcog
 VAR
   long cog
 
-PUB start (params) | okay
+PUB start (params) : okay
   okay := cog := cognew(@enter, params) + 1   'Start emulator in a new COG
 
 PUB stop

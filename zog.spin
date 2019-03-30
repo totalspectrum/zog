@@ -133,7 +133,7 @@
 '                          endian zpu toolchain
 '
 '
-'#define SINGLE_STEP
+#define SINGLE_STEP
 '#define CYCLE_COUNT
 '#define USE_JCACHED_MEMORY
 '#define USE_VIRTUAL_MEMORY
@@ -993,6 +993,7 @@ mboxcmd                 add     temp, #8             'Pointer to first long of V
 mboxdat                 mov     mboxdat, temp        'Pointer to second long of VMCOG mailbox (+4 offset)
 #endif
 
+			mov	tos, #0
                         jmp     #execute
 '------------------------------------------------------------------------------
 
