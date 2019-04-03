@@ -96,14 +96,19 @@ debug_addr
 		add	temp, #4
 data
 		mov	sp_addr, temp
+t2
 		add	temp, #4
+tos
 		mov	tos_addr, temp
+memp
 		add	temp, #4
+opcode
 		mov	dm_addr, temp
+opdata
 		add	temp, #4
+opptr
 		mov	debug_addr, temp
-		add	temp, #4
-
+condition
 		add	ptrb, zpu_memory_addr
 		add	pb, zpu_memory_addr
 
@@ -137,9 +142,9 @@ instr0x_table
 		and	tos, zpu_math_compile
 		or	tos, zpu_math_compile
 		
-		rdlong	0, zpu_load_compile
-		not	tos, zpu_oneop_compile
-		long	zpu_flip_compile
+		rdlong	tos, zpu_load_compile
+		muxz	zpu_not_pat, basic_pat1_compile
+		muxz	zpu_flip_pat, basic_pat1_compile
 		long	zpu_nop_compile
 		
 		muxz	zpu_store_pat, basic_pat1_compile
@@ -150,31 +155,31 @@ instr0x_table
 instr2x_table
 		long	zpu_illegal_compile
 		long	zpu_illegal_compile
-		rdword	0, zpu_load_compile
-		wrword	0, zpu_storeh_compile
-		long	zpu_lt_compile
-		long	zpu_le_compile
-		long	zpu_ltu_compile
-		long	zpu_leu_compile
-		long	zpu_swap_compile
+		rdword	tos, zpu_load_compile
+		wrword	tos, zpu_storeh_compile
+		cmps	tos, zpu_lt_compile wcz
+		cmps	tos, zpu_le_compile wcz
+		cmp	tos, zpu_ltu_compile wcz
+		cmp	tos, zpu_leu_compile wcz
+		muxz	zpu_swap_pat, basic_pat1_compile
 		long	zpu_mult_compile
-		shr	0, zpu_shift_compile
-		shl	0, zpu_shift_compile
-		sar	0, zpu_shift_compile
+		shr	tos, zpu_math_compile
+		shl	tos, zpu_math_compile
+		sar	tos, zpu_math_compile
 		long	zpu_call_compile
 		long	zpu_eq_compile
 		long	zpu_ne_compile
 
 instr3x_table
-		neg	0, zpu_oneop_compile
-		sub	0, zpu_math_compile
-		xor	0, zpu_math_compile
-		rdbyte	0, zpu_load_compile
-		wrbyte	0, zpu_storeh_compile
-		long	zpu_div_compile
-		long	zpu_mod_compile
-		long	zpu_eqbranch_compile
-		long	zpu_nebranch_compile
+		muxz	zpu_neg_pat, basic_pat1_compile
+		subr	tos, zpu_math_compile
+		xor	tos, zpu_math_compile
+		rdbyte	tos, zpu_load_compile
+		wrbyte	tos, zpu_storeh_compile
+		muxz	zpu_div_pat, basic_pat1_compile
+		muxz	zpu_mod_pat, basic_pat1_compile
+	if_z	muxz	0, zpu_eqbranch_compile
+	if_nz	muxz	0, zpu_nebranch_compile
 		long	zpu_poppcrel_compile
 		muxz	zpu_config_pat, basic_pat2_compile
 		long	zpu_pushpc_compile
@@ -189,16 +194,32 @@ neg_pat		neg	tos, #0-0
 aug_pat		augs	#0
 aug_mask	long	$007fffff	' 23 bits
 locpb_pat
+		loc	pb, #\0-0
+
+locpb_ret_pat
 	_ret_	loc	pb, #\0-0
-locpb_mask	long	$000fffff	' 20 bits
+
+locpa_and_tos_pat
+locpa_pat
+		loc	pa, #\0-0
+		mov	tos, pa
+
+end_branch_pat
+		add	pb, temp
+		ret
+		
+loc_mask	long	$000fffff	' 20 bits
 pushtos_pat
 		wrlong	tos, ptrb--
-poppb_pat
-		rdlong	pb, ++ptrb
-	_ret_	add	pb, zpu_memory_addr
+
+pushpb_pat
+		wrlong	pb, ptrb--
+
+mov_tos_into_temp_pat
 poptemp_pat
 		mov	temp, tos
 		rdlong	tos, ++ptrb
+
 add_to_temp_pat
 		add	temp, #0-0
 branch_to_temp_pat
@@ -211,6 +232,14 @@ zpu_illegal_pat
 zpu_breakpoint_pat
 		call	#\runtime_break
 
+zpu_swap_pat
+		ror	tos, #16
+zpu_flip_pat
+		rev	tos
+zpu_neg_pat
+		neg	tos,tos
+zpu_not_pat
+		not	tos,tos
 zpu_pushsp_pat
 		wrlong	tos,ptrb--
 		mov	tos, ptrb
@@ -227,13 +256,44 @@ zpu_nop_pat
 zpu_popsp_pat
 		mov	ptrb, tos
 		add	ptrb, zpu_memory_addr
-		mov	tos, ptrb
+		rdlong	tos, ptrb
 
 loadsp_pat
 		mov	temp, #0-0
 		add	temp, ptrb
 		wrlong	tos, ptrb--
 		rdlong	tos, temp
+storesp_pat
+		mov	temp, #0-0
+		add	temp, ptrb
+		wrlong	tos, temp
+		rdlong	tos, ++ptrb
+
+set_le_pat
+		mov	tos, #0
+   if_le	mov	tos, #1
+
+cmp_pat		cmp	tos, 0 wcz
+wrnc_pat
+		wrnc	tos
+wrz_pat
+		wrz	tos
+wrnz_pat
+		wrnz	tos
+qmul_pat
+		qmul	tos, 0
+getqx_pat
+		getqx	tos
+zpu_div_pat
+		call	#\runtime_do_div
+zpu_mod_pat
+		call	#\runtime_do_mod
+
+addsp_0_pat
+		add	tos, tos
+addsp_N_pat
+		rdlong	temp, ptrb[1]
+		add	tos, temp
 
 zpu_config_pat
 		mov	cpu, tos
@@ -241,6 +301,11 @@ zpu_config_pat
 
 zpu_store_pat
 		call	#\runtime_store
+
+zpu_call_pat
+		mov	pb, tos
+		loc	pa, #\0
+		mov	tos, pa
 		
 		'''''''''''''''''''''''''''''''''''''''''''''
 		''  runtime support code: must be present while
@@ -254,12 +319,14 @@ runtime_break
 			sub	memp, zpu_memory_addr
                         wrlong  memp, sp_addr
                         wrlong  tos, tos_addr
-                        wrlong  cachepc, dm_addr
+                        wrlong  debug_info, debug_addr
                         mov     temp, #io_cmd_break     'Set I/O command to BREAK
                         wrlong  temp, io_command_addr
 .wait                   rdlong  temp, io_command_addr wz
               if_nz     jmp     #.wait
 	                ret
+
+debug_info long 0
 
 runtime_store
 			rdlong	data, ++ptrb
@@ -269,6 +336,30 @@ runtime_store
 			add	memp, zpu_memory_addr
 		_ret_	wrlong	data, memp
 
+		'' calculate tos / data on stack
+runtime_do_mod
+			mov	temp2, #1	' flag for remainder
+			jmp	#do_divmod
+runtime_do_div
+			mov	temp2, #2	' flag for division
+do_divmod
+			rdlong data, ++ptrb
+			abs    tos, tos wc
+			muxc   t2, #%11	' store sign of tos
+			abs    data, data wc,wz
+	if_x		xor    t2, #%10			' store sign of data
+			qdiv   tos, data
+			test   temp2, #1 wz
+	if_nz		jmp    #do_remainder
+			getqx  tos			' get quotient
+			test   t2, #%10 wc
+	_ret_		negc   tos,tos
+do_remainder
+			getqy	tos		' get remainder
+			test	t2, #%1 wc
+	_ret_		negc	tos,tos
+	
+			
 write_long_zpu
 'Write a LONG from "data" to ZPU memory at "address"
 write_long_zpu          cmp     memp, zpu_cog_start wc
@@ -342,20 +433,22 @@ compile_non_imm
        		call	temp2
 
 done_instruction
+#ifdef FIXME
 		' are we finishing the trace?
 		test	trace_flags, #1 wc
 	if_c	jmp	#close_trace
-	
+
 		' is there room for another instruction?
 		' if not, close out the cache line
 		mov	temp, cachepc
 		sub	temp, orig_cachepc
 		cmp	temp, #31-MAX_INSTR_LENGTH wcz
 	if_b	jmp	#compile
+#endif	
 close_trace
 		' emit a loc instruction to finish the trace
-		mov	opcode, locpb_pat
-		and    	pb, locpb_mask
+		mov	opcode, locpb_ret_pat
+		andn	opcode, loc_mask
 		or     	opcode, pb
 emit_opcode_and_done_compiling
 		call   	#emit_opcode
@@ -378,6 +471,7 @@ push_if_imm
 		'' emit a push; this is 1 long
 		mov	opcode, pushtos_pat
 		call	#emit_opcode
+
 		'' now emit a mov of the immediate to tos
 		'' this can emit up to 2 longs
 		jmp	#emit_mov
@@ -440,41 +534,75 @@ emit_instr
 		shl	emitcnt, #2
 	_ret_	add	cachepc, emitcnt
 
+		'' compile zpu_call:
+		'' branch to tos and put old address in tos
+		''
+		'' if immval is valid we emit
+		''   wrlong tos, ptrb--
+		'' otherwise
+		''    mov temp, tos
+		'' then
+		''    mov tos, ##CUR_PC
+		''    ... then an appropriate indirect jmp
+		''
+zpu_callpcrel_compile
+		mov	t2, #1		' pc relative
+		jmp	#call_common
+zpu_call_compile
+		mov	t2, #0		' absolute address
+call_common
+		cmp	pendingImm, #0 wz
+	if_z	jmp	#call_indirect
+		or	t2, #2	        ' flag that immval is good
+		mov	opptr, #pushtos_pat
+		jmp	#set_return_addr
+call_indirect
+		mov	opptr, #mov_tos_into_temp_pat
+set_return_addr
+		call	#emit1		' emit mov or pop, as set up above
+		
+		'' want to issue:
+		'' loc pa, #\retaddr (in memp)
+		'' mov tos, pa
+		call	#emit_nextpc_into_tos
+
+		'' and now, finally, issue the branch
+		jmp	#compile_uncond_branch
+		
 		'' compile zpu_poppc
 zpu_poppc_compile
-		tjz	pendingImm, #emit_tos_branch
-		'' we know the address, it's in the immval field
-		'' FIXME: if we're jumping back to the start of this trace, we could emit
-		'' a JMP instruction directly
-		add   	immval, zpu_memory_addr
-jmp_immval
-		mov	opcode, locpb_pat
-		and   	immval, locpb_mask
-		or    	opcode, immval
-		jmp	#emit_opcode_and_done_compiling
-emit_tos_branch
-		mov	opptr, #poppb_pat
-		call	#emit2
-		'' there's a branch here, so we're done compiling
-		jmp	#done_compiling
+		tjz	pendingImm, #jmp_indirect
+		mov	t2, #2		' flags: 2= immval valid, 1 = relative branch
+		jmp	#compile_uncond_branch
+jmp_indirect
+		mov	opptr, #poptemp_pat
+		mov	t2, #0		' flags: 2= immval valid, 1 = relative branch
+		jmp	#compile_uncond_branch
 
 zpu_poppcrel_compile
-		tjz	pendingImm, #emit_tos_relative_branch
-		'' at this point we know the address
-		add	immval, pb
-		sub	immval, #1	' we already incremented the PC, undo it
-		jmp	#jmp_immval
-emit_tos_relative_branch
+		tjz	pendingImm, #jmp_indirect2
+		mov	t2, #3		' flags: 2= immval valid, 1 = relative branch
+		jmp	#compile_uncond_branch
+jmp_indirect2
+		mov	opptr, #poptemp_pat
+		mov	t2, #1		' flags: 2= immval valid, 1 = relative branch
+		jmp	#compile_uncond_branch
+
+		'''''''''''''''''''''''''''''''''''''
+		'' utility function: compile either an
+		'' OP tos, IMM
+		'' or
+		'' mov temp, tos
+		'' pop tos
+		'' OP tos, temp
+		'' where "opcode" is the instruction in opcode
+		'''''''''''''''''''''''''''''''''''''
+compile_op_tos_or_imm
+		tjnz	pendingImm, #emit_opcode_imm
 		mov	opptr, #poptemp_pat
 		call	#emit2
-		'' now emit code to add current pb to temp
-		mov	immval, pb
-		sub    	immval, #1
-		mov    	opcode, add_to_temp_pat
-		call   	#emit_opcode_imm
-		'' finally pop and return
-		mov	opcode, branch_to_temp_pat
-		jmp	#emit_opcode_and_done_compiling
+		sets	opcode, #temp
+		jmp	#emit_opcode
 		
 		'''''''''''''''''''''''''''''''''''''
 		'' compile a math operation
@@ -482,12 +610,43 @@ emit_tos_relative_branch
 		'''''''''''''''''''''''''''''''''''''
 zpu_math_compile
 		mov	opcode, opdata
-		tjnz	pendingImm, #emit_opcode_imm
-		'' OK, have to do things on the stack here
-		mov    opptr, #poptemp_pat
-		call   #emit2
-		sets   opcode, #temp
-		jmp    #emit_opcode
+		jmp	#compile_op_tos_or_imm
+
+zpu_mult_compile
+		mov	opcode, qmul_pat
+		call	#compile_op_tos_or_imm
+		mov	opptr, #getqx_pat
+		jmp	#emit1
+
+		'' compile newtos < tos
+		'' which is equivalent to (tos <= newtos)
+		'' opdata has "cmp" or "cmps" as appropriate
+zpu_lt_compile
+zpu_ltu_compile
+		mov	opcode, opdata
+		call	#compile_op_tos_or_imm
+		mov	opptr, #set_le_pat
+		jmp	#emit2
+
+		' newtos <= tos
+		' is the same as !(tos < newtos)
+zpu_le_compile
+zpu_leu_compile
+		mov	opcode, opdata
+		call	#compile_op_tos_or_imm
+		mov	opptr, #wrnc_pat
+		jmp	#emit1
+
+zpu_eq_compile
+		mov	opcode, cmp_pat
+		call	#compile_op_tos_or_imm
+		mov	opptr, #wrz_pat
+		jmp	#emit1
+zpu_ne_compile
+		mov	opcode, cmp_pat
+		call	#compile_op_tos_or_imm
+		mov	opptr, #wrnz_pat
+		jmp	#emit1
 
 		''''''''''''''''''''''''''''''''''''''
 		'' compile a loadh/loadb
@@ -518,30 +677,141 @@ zpu_loadsp_N_compile
 		mov	opptr, #loadsp_pat
 		jmp	#emit4
 
-zpu_storeh_compile	
-zpu_addsp_compile
 zpu_storesp_compile
 zpu_storesp_N_compile
-zpu_call_compile
-zpu_callpcrel_compile
+		call	#push_if_imm
+		and	pa, #$1F
+		xor	pa, #$10
+		shl	pa, #2
+		sets	storesp_pat, pa
+		mov	opptr, #storesp_pat
+		jmp	#emit4
+
+zpu_addsp_compile
+		call	#push_if_imm
+		and	pa, #$F wz
+	if_z	mov	opptr, #addsp_0_pat
+	if_z	jmp	#emit1
+		andn	addsp_N_pat, #$f
+		or	addsp_N_pat, pa
+		mov	opptr, #addsp_N_pat
+		jmp	#emit2
+
+		' emit code to put current pc into tos
+		' temp should contain the offset (-1 or 0)
+		' cases:
+
+		' mov PB - ZPU_BASE_ADDR into tos
+emit_nextpc_into_tos
+		mov	temp, pb
+		sub	temp, zpu_memory_addr
+		jmp	#emit_temp_into_tos
+emit_curpc_into_tos
+		mov	temp, pb
+		sub	temp, #1
+		sub	temp, zpu_memory_addr
+		jmp	#emit_temp_into_tos
+emit_temp_into_tos
+		andn	locpa_pat, loc_mask
+		or	locpa_pat, temp
+		mov	opptr, #locpa_and_tos_pat
+		jmp	#emit2
+		
 zpu_pushpc_compile
-zpu_shift_compile
-zpu_eq_compile
-zpu_ne_compile
-zpu_lt_compile
-zpu_le_compile
-zpu_ltu_compile
-zpu_leu_compile
-zpu_swap_compile
-zpu_flip_compile
-zpu_oneop_compile
-zpu_mult_compile
-zpu_div_compile
-zpu_mod_compile
+		call	#push_if_imm
+		mov	opptr, #pushtos_pat
+		call	#emit1
+		jmp	#emit_curpc_into_tos
+
+		' compile a branch
+		' there are 4 cases:
+		'   t2&1: 0 = absolute branch, 1 = relative branch
+		'   t2&2: 0 = no immediate, address was placed in temp register earlier
+		'         1 = use value in immval
+		'   "condition" has the P2 condition flags we want to use ($f0000000 for unconditional)
+		' for immediate branches the compiled code looks like:
+		'       loc pb, #\immval + CUR_PC-1  or loc pb, #\immval + ZPU_BASE_ADDR
+		'  if_x ret
+		'
+		' for computed branches the compiled code looks like:
+		'     loc pb, #\CUR_PC-1 or loc pb, #\ZPU_BASE_ADDR (relative or absolute)
+		'     add pb, temp
+		' if_x ret
+compile_uncond_branch
+		mov	condition, cond_mask
+		'' fall through
+compile_cond_branch
+		or	debug_info, condition
+		test	t2, #1 wz ' check for absolute vs. relative
+	if_z	mov	temp, zpu_memory_addr
+	if_nz	mov	temp, pb
+	if_nz	sub	temp, #1
+		test	t2, #2 wz ' check for absolute vs. relative
+	if_nz	add	temp, immval
+		mov	opcode, locpb_pat
+		or	opcode, temp
+		call	#emit_opcode
+		' fix up the condition on the ret
+		andn	end_branch_pat+1, cond_mask
+		or	end_branch_pat+1, condition
+		' now emit the actual branch
+		mov	emitcnt, #2
+		mov	opptr, end_branch_pat
+		and	t2, #1			' now t2 is 1 if immval is good
+		sub	emitcnt, t2		' emit 2 or 1 instruction
+		add	opptr, t2
+		call	#emit
+		cmp	condition, cond_mask wz
+	if_z	jmp	#done_compiling
+		ret
+		
+		' 
+		' conditional branches
+		' these test next-on-stack for 0, and if z/nz they do a relative
+		' branch to the address in tos
+		'
+		' if there is a pending immediate immval, then that is the branch target:
+		'          cmp    tos, #0 wz
+		'          rdlong tos, ++ptrb
+		'    	   loc	  pb, #\immval + CUR_PC - 1
+		'   if_z   ret
+		'
+		'  IDEALLY we'd like the last two instructions to become
+		'   if_z   jmp  #\CACHE_START(immval+CUR_PC-1)
+		'
+		' if there is no pending immediate
+		'        mov temp, tos
+		'        rdlong  tos, ++ptrb wz
+		'        rdlong  tos, ++ptrb
+		'        loc pb, #\CUR_PC-1
+		'        add pb, temp
+		' if_z   ret
+
+pop_test_imm_pat
+		cmp	tos, #0 wz
+		rdlong	tos, ++ptrb
+pop_test_alt_pat
+		mov	temp, tos
+		rdlong	tos, ++ptrb wz
+		rdlong	tos, ++ptrb
+		
 zpu_eqbranch_compile
 zpu_nebranch_compile
+		mov	condition, opdata
+		and	cond_mask, opdata
+		tjz	pendingImm, #br_no_imm
+		mov	opptr, #pop_test_imm_pat
+		mov	emitcnt, #2
+		jmp	#br_common
+br_no_imm
+		mov	opptr, #pop_test_alt_pat
+		mov	emitcnt, #3
+br_common
+		call	#emit
+		jmp	#compile_cond_branch
+		
+zpu_storeh_compile	
 zpu_syscall_compile
-zpu_pushspadd_compile
 zpu_illegal_compile
 		mov	opptr, #zpu_breakpoint_pat
 		jmp	#basic_pat1_compile
@@ -564,6 +834,7 @@ imm_loop
 		jmp	#imm_loop
 done_imm
 		mov	pendingImm, #1
+		mov	debug_info, immval
 		jmp	#compile_non_imm
 
 emit_mov
@@ -604,8 +875,7 @@ reinit_cache
 	add	temp2, #1
 .endloop
 
-	mov	cachepc, dispatch_tab_addr
-	ret
+_ret_	mov	cachepc, dispatch_tab_addr
 	
 ''''''''''''''''''''''
 '' variables
@@ -617,6 +887,8 @@ trace_flags
 
 zpu_io_base             long $80000000  'Start of IO access window
 zpu_cog_start           long $80008000  'Start of COG access window in ZPU memory space
+
+cond_mask		long $f0000000  ' mask for conditional execution bits in instruction
 
 trace_zpc
 		res	TRACE_TAGS_SIZE		' 16 longs for ZPU PC of start of cache
@@ -630,13 +902,5 @@ pendingImm
 		res	1		' if non-zero, immval holds an immediate which needs to be dealt with
 immval
 		res	1		' immediate to apply to instruction, if pendingImm is non-zero
-opcode
-		res	1
-opdata
-		res	1
-tos
-		res	1		' top of stack
-memp
-		res	1		' pointer to memory
-opptr
-		res	1		' pointer to some code to emit
+
+		fit	$1d0

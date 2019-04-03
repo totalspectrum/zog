@@ -792,7 +792,7 @@ PRI _time
   ser.str(string("_time ?"))
   repeat
 
-PRI print_regs | i, p, op
+PRI print_regs | i, p, op, d
 'Print the ZPU registers
   ser.str(string("0x"))
   ser.hex(zog_mbox_pc, 7)
@@ -805,7 +805,7 @@ PRI print_regs | i, p, op
   op := vm.rdvbyte(zog_mbox_pc ^ ENDIAN_FIX)                   'XOR here is an endianess fix.
 #endif
 #ifdef USE_HUB_MEMORY
-  op := zpu_memory[zog_mbox_pc ^ ENDIAN_FIX]                   'XOR here is an endianess fix.
+  op := zpu_memory[(zog_mbox_pc ^ ENDIAN_FIX)]                   'XOR here is an endianess fix.
 #endif
   ser.hex(op, 2)
   ser.tx($20)
@@ -815,8 +815,12 @@ PRI print_regs | i, p, op
   ser.str(string("0x"))
   ser.hex(zog_mbox_tos, 8)
   ser.tx($20)
+  '' pop increments sp and then reads from it
+  d := zpu_memory[4+(zog_mbox_sp ^ ENDIAN_FIX)]  
   ser.str(string("0x"))
-  ser.hex(zog_mbox_dm, 8)
+  ser.hex(d, 8)
+  ser.tx($20)
+  ser.hex(zog_mbox_debug, 8)
   crlf
 
   case op
