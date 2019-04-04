@@ -18,7 +18,8 @@
 }}
 '' useful def for turning stuff on and off
 #define ALWAYS
-'#define DEBUG
+#define DEBUG
+#define DEBUG_TRAMPOLINE
 
 ''
 '' various bits used in instructions
@@ -224,6 +225,8 @@ direct_branch_pat
 indirect_branch_pat
 		add	pb, temp
 		jmp	#\set_pc
+plain_jmp_pat
+		jmp	#\$abcd
 		
 loc_mask	long	$000fffff	' 20 bits
 pushtos_pat
@@ -443,7 +446,7 @@ start_running
 		'' jump to address in pb (which is already adjusted to HUB)
 		''
 set_pc
-		mov	pa, #0		' source for destination is not known
+		mov	pa, #4		' source for destination is not known
 trampoline_set_pc
 
 #ifdef DEBUG
@@ -458,14 +461,32 @@ trampoline_set_pc
 	if_nz	jmp	#cache_miss		' if not in cache, recompile
 
 cache_hit
-		'' if a cache hit, just load the cache address and jump to it
+		'' if a cache hit, just load the cached address
+		'' into orig_cachepc
 		add	opdata, #$100
-		rdlut	temp, opdata
-#ifdef DEBUG
-		rdlong	debug_info, temp
-		call	#\@@@runtime_break
-#endif
-		jmp	temp
+		rdlut	orig_cachepc, opdata
+
+		'' if pa is > 0, then it's a return address from
+		'' the instruction that came here; fix that instruction
+		'' up
+		'' BEWARE: pa can come in with some high bits set
+		'' so don't rely on those bits
+		sub	pa, #4 wcz
+	if_nz	jmp	#goto_cache
+
+		'' OK, pa points at the instruction to fix up now
+		'' be careful to copy over the condition bits too
+		rdlong	condition, pa      ' fetch original
+		and	condition, cond_mask
+		mov	opcode, plain_jmp_pat
+		andn	opcode, cond_mask
+		andn   	opcode, loc_mask
+		or     	opcode, orig_cachepc
+		or     	opcode, condition
+		wrlong 	opcode, pa
+
+goto_cache
+		jmp	orig_cachepc
 
 cache_miss
 		' OK, we got a cache miss here
@@ -974,7 +995,7 @@ pendingImm
 immval
 		res	1		' immediate to apply to instruction, if pendingImm is non-zero
 
-		fit	$1e8
+		fit	$1f0
 
 		orgh
 div_zero_error
