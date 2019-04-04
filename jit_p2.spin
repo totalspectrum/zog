@@ -18,7 +18,7 @@
 }}
 '' useful def for turning stuff on and off
 #define ALWAYS
-#define DEBUG
+'#define DEBUG
 
 ''
 '' various bits used in instructions
@@ -131,9 +131,9 @@ nibble_table
 		long	instr2x_table | $80000000
 		long	instr3x_table | $80000000
 		long	zpu_storesp_compile
-		long	zpu_storesp_N_compile
+		long	zpu_storesp_compile
 		long	zpu_loadsp_compile
-		long	zpu_loadsp_N_compile
+		long	zpu_loadsp_compile
 instr0x_table
 		muxz	zpu_breakpoint_pat, basic_pat1_compile
 		long	zpu_illegal_compile
@@ -175,7 +175,7 @@ instr2x_table
 
 instr3x_table
 		muxz	zpu_neg_pat, basic_pat1_compile
-		subr	tos, zpu_math_compile
+		sub	tos, zpu_math_compile
 		xor	tos, zpu_math_compile
 		rdbyte	tos, zpu_load_compile
 		
@@ -224,7 +224,7 @@ pushpb_pat
 mov_tos_into_temp_pat
 poptemp_pat
 		mov	temp, tos
-		rdlong	tos, ++ptrb
+poptos_pat	rdlong	tos, ++ptrb
 
 add_to_temp_pat
 		add	temp, #0-0
@@ -317,6 +317,7 @@ zpu_call_pat
 		''  runtime support code: must be present while
 		''  compiled code is running
 		'''''''''''''''''''''''''''''''''''''''''''''
+div_zero_error
 runtime_break
 			mov	memp, pb
 			sub	memp, zpu_memory_addr
@@ -349,11 +350,12 @@ runtime_do_mod
 runtime_do_div
 			mov	temp2, #2	' flag for division
 do_divmod
-			rdlong data, ++ptrb
+			rdlong data, ++ptrb wz
+		if_z	jmp    #div_zero_error
 			abs    tos, tos wc
 			muxc   t2, #%11	' store sign of tos
 			abs    data, data wc,wz
-	if_x		xor    t2, #%10			' store sign of data
+	if_c		xor    t2, #%10			' store sign of data
 			qdiv   tos, data
 			test   temp2, #1 wz
 	if_nz		jmp    #do_remainder
@@ -672,11 +674,11 @@ zpu_load_compile
 		jmp	#emit_opcode
 
 zpu_loadsp_compile
-zpu_loadsp_N_compile
 		call	#push_if_imm
 		and	pa, #$1F
 		xor	pa, #$10		' weird that we need this
-		shl	pa, #2
+		shl	pa, #2 wz
+	if_z	jmp	#loadsp_0
 		'' now compile
 		'' mov temp, #pa
 		'' add temp, ptrb
@@ -685,17 +687,22 @@ zpu_loadsp_N_compile
 		sets	loadsp_pat, pa
 		mov	opptr, #loadsp_pat
 		jmp	#emit4
-
+loadsp_0
+		mov	opptr, #pushtos_pat
+		jmp	#emit1
+		
 zpu_storesp_compile
-zpu_storesp_N_compile
 		call	#push_if_imm
 		and	pa, #$1F
 		xor	pa, #$10
-		shl	pa, #2
+		shl	pa, #2 wz
+	if_z	jmp	#do_storesp_0
 		sets	storesp_pat, pa
 		mov	opptr, #storesp_pat
 		jmp	#emit4
-
+do_storesp_0
+		mov	opptr, #poptos_pat
+		jmp	#emit1
 zpu_addsp_compile
 		call	#push_if_imm
 		and	pa, #$F wz
@@ -848,9 +855,7 @@ imm_loop
 		jmp	#imm_loop
 done_imm
 		mov	pendingImm, #1
-#ifdef DEBUG		
 		mov	debug_info, immval
-#endif		
 		jmp	#compile_non_imm
 
 emit_mov
