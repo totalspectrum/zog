@@ -175,6 +175,7 @@ instr3x_table
 		subr	tos, zpu_math_compile
 		xor	tos, zpu_math_compile
 		rdbyte	tos, zpu_load_compile
+		
 		wrbyte	tos, zpu_storeh_compile
 		muxz	zpu_div_pat, basic_pat1_compile
 		muxz	zpu_mod_pat, basic_pat1_compile
@@ -386,8 +387,9 @@ start_running
 		'' jump to address in pb (which is already adjusted to HUB)
 		''
 set_pc
+#ifdef ALWAYS
 		call	#runtime_break		' DEBUG CODE
-
+#endif
 		'' check here for a cache hit
 		getnib	opdata, pb, #0
 #ifdef NEVER
@@ -753,6 +755,8 @@ compile_cond_branch
 		' fix up the condition on the ret
 		andn	end_branch_pat+1, cond_mask
 		or	end_branch_pat+1, condition
+
+		mov	debug_info, condition
 		
 		' now emit the actual branch
 		mov	emitcnt, #2
@@ -801,7 +805,7 @@ zpu_eqbranch_compile
 zpu_nebranch_compile
 		mov	t2, #1			' set up for relative branch
 		mov	condition, opdata
-		and	cond_mask, opdata
+		and	condition, cond_mask
 		tjz	pendingImm, #br_no_imm
 		or	t2, #2			' immediate value valid
 		mov	opptr, #pop_test_imm_pat
