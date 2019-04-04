@@ -278,6 +278,9 @@ zpu_popsp_pat
 		add	ptrb, zpu_memory_addr
 		rdlong	tos, ptrb
 
+loadsp_N_pat
+		wrlong	tos, ptrb--
+		rdlong	tos, ptrb[1]
 loadsp_pat
 		mov	temp, #0-0
 		add	temp, ptrb
@@ -309,9 +312,9 @@ qmul_pat
 getqx_pat
 		getqx	tos
 zpu_div_pat
-		call	#\runtime_do_div
+		call	#\@@@runtime_do_div
 zpu_mod_pat
-		call	#\runtime_do_mod
+		call	#\@@@runtime_do_mod
 
 addsp_0_pat
 		add	tos, tos
@@ -373,29 +376,6 @@ runtime_load
 			add	memp, zpu_memory_addr
         _ret_           rdlong  tos, memp
 
-			'' calculate tos / data on stack
-runtime_do_mod
-			mov	temp2, #1	' flag for remainder
-			jmp	#do_divmod
-runtime_do_div
-			mov	temp2, #2	' flag for division
-do_divmod
-			rdlong data, ++ptrb wz
-		if_z	jmp    #@@@div_zero_error
-			abs    tos, tos wc
-			muxc   t2, #%11	' store sign of tos
-			abs    data, data wc,wz
-	if_c		xor    t2, #%10			' store sign of data
-			qdiv   tos, data
-			test   temp2, #1 wz
-	if_nz		jmp    #do_remainder
-			getqx  tos			' get quotient
-			test   t2, #%10 wc
-	_ret_		negc   tos,tos
-do_remainder
-			getqy	tos		' get remainder
-			test	t2, #%1 wc
-	_ret_		negc	tos,tos
 	
 			
 write_long_zpu
@@ -758,21 +738,23 @@ zpu_load_compile
 zpu_loadsp_compile
 		call	#push_if_imm
 		and	pa, #$1F
-		xor	pa, #$10		' weird that we need this
-		shl	pa, #2 wz
+		xor	pa, #$10 wz		' weird that we need this
 	if_z	jmp	#loadsp_0
-		'' now compile
-		'' mov temp, #pa
-		'' add temp, ptrb
-		'' wrlong tos, ptrb--
-		'' rdlong tos, temp
-		sets	loadsp_pat, pa
-		mov	opptr, #loadsp_pat
-		jmp	#emit4
+
+		'' for indices 0..14 (0..56) we can do
+		''    wrlong tos,ptrb--
+		''    rdlong tos, ptrb[N+1]
+		cmp	pa, #14 wcz
+	if_ae	jmp	#\@@@hub_compile_big_loadsp
+		add	pa, #1
+		andn	loadsp_N_pat+1, #$F
+		or	loadsp_N_pat+1, pa
+		mov	opptr, #loadsp_N_pat
+		jmp	#emit2
 loadsp_0
 		mov	opptr, #pushtos_pat
 		jmp	#emit1
-		
+				
 zpu_storesp_compile
 		call	#push_if_imm
 		and	pa, #$1F
@@ -1019,3 +1001,46 @@ runtime_break
               if_nz     jmp     #.wait
 	                ret
 
+			'' calculate tos / data on stack
+runtime_do_mod
+			mov	temp2, #1	' flag for remainder
+			jmp	#do_divmod
+runtime_do_div
+			mov	temp2, #2	' flag for division
+do_divmod
+			rdlong data, ++ptrb wz
+		if_z	jmp    #@@@div_zero_error
+			abs    tos, tos wc
+			muxc   t2, #%11	' store sign of tos
+			abs    data, data wc,wz
+	if_c		xor    t2, #%10			' store sign of data
+			qdiv   tos, data
+			test   temp2, #1 wz
+	if_nz		jmp    #do_remainder
+			getqx  tos			' get quotient
+			test   t2, #%10 wc
+	_ret_		negc   tos,tos
+do_remainder
+			getqy	tos		' get remainder
+			test	t2, #%1 wc
+	_ret_		negc	tos,tos
+
+			''
+			'' compile loadsp
+			'' this is a frequent operation, so it's worth optimizing it a bit
+			''
+			
+hub_loadsp_compile
+hub_compile_big_loadsp
+		'' 
+		'' now compile
+		'' mov temp, #pa
+		'' add temp, ptrb
+		'' wrlong tos, ptrb--
+		'' rdlong tos, temp
+		''
+		shl	pa, #2
+		sets	loadsp_pat, pa
+		mov	opptr, #loadsp_pat
+		jmp	#emit4
+		
