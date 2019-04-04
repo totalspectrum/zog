@@ -217,7 +217,10 @@ locpa_pat
 		loc	pa, #\0-0
 		mov	tos, pa
 
-end_branch_pat
+direct_branch_pat
+		calld	pa, #\set_pc
+		
+indirect_branch_pat
 		add	pb, temp
 		calld	pa, #\set_pc
 		
@@ -809,29 +812,33 @@ compile_cond_branch
 	if_z	mov	temp, zpu_memory_addr
 	if_nz	mov	temp, pb
 	if_nz	sub	temp, #1
+
 		test	t2, #2 wz ' check for direct (immval good) vs. indirect
-	if_nz	add	temp, immval
-	
+	if_z	jmp	#unknown_br_target
+		add	temp, immval
+		mov	opptr, #direct_branch_pat
+		mov	emitcnt, #1
+		' fix up the condition on the ret
+		andn	direct_branch_pat, cond_mask
+		or	direct_branch_pat, condition
+
+		jmp	#common_br_target
+unknown_br_target
+		mov	opptr, #indirect_branch_pat
+		mov	emitcnt, #2
+		' fix up the condition on the ret
+		andn	indirect_branch_pat+1, cond_mask
+		or	indirect_branch_pat+1, condition
+
+common_br_target
 		mov	opcode, locpb_pat
 		or	opcode, temp
-
 		call	#emit_opcode
 		
-		' fix up the condition on the ret
-		andn	end_branch_pat+1, cond_mask
-		or	end_branch_pat+1, condition
-
-		' now emit the actual branch
-		mov	emitcnt, #2
-		mov	opptr, #end_branch_pat
-		
-		test	t2, #2 wz   	   	' see if immval was valid   	
-	if_nz	sub	emitcnt, #1		' emit 2 or 1 instruction
-	if_nz	add	opptr, #1
 
 		or	trace_flags, #1
 		jmp	#emit
-		
+
 		' 
 		' conditional branches
 		' these test next-on-stack for 0, and if z/nz they do a relative
