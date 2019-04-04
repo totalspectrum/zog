@@ -219,7 +219,7 @@ locpa_pat
 
 end_branch_pat
 		add	pb, temp
-		ret
+		calld	pa, #\set_pc
 		
 loc_mask	long	$000fffff	' 20 bits
 pushtos_pat
