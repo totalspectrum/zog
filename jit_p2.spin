@@ -286,6 +286,9 @@ loadsp_pat
 		add	temp, ptrb
 		wrlong	tos, ptrb--
 		rdlong	tos, temp
+storesp_N_pat
+		wrlong	tos, ptrb[1]
+		rdlong	tos,++ptrb
 storesp_pat
 		mov	temp, #0-0
 		add	temp, ptrb
@@ -758,12 +761,18 @@ loadsp_0
 zpu_storesp_compile
 		call	#push_if_imm
 		and	pa, #$1F
-		xor	pa, #$10
-		shl	pa, #2 wz
+		xor	pa, #$10 wz
 	if_z	jmp	#do_storesp_0
-		sets	storesp_pat, pa
-		mov	opptr, #storesp_pat
-		jmp	#emit4
+
+		'' for indices 0..15 (bytes 0..56) we can do
+		''    wrlong tos,ptrb[N+1]
+		''    rdlong tos, ++ptrb
+		cmp	pa, #15 wcz
+	if_ae	jmp	#\@@@hub_compile_big_storesp
+		mov	opptr, #storesp_N_pat
+		andn	storesp_N_pat, #$F
+		or	storesp_N_pat, pa
+		jmp	#emit2
 do_storesp_0
 		mov	opptr, #poptos_pat
 		jmp	#emit1
@@ -1030,7 +1039,6 @@ do_remainder
 			'' this is a frequent operation, so it's worth optimizing it a bit
 			''
 			
-hub_loadsp_compile
 hub_compile_big_loadsp
 		'' 
 		'' now compile
@@ -1044,3 +1052,9 @@ hub_compile_big_loadsp
 		mov	opptr, #loadsp_pat
 		jmp	#emit4
 		
+hub_compile_big_storesp
+		shl	pa, #2 wz
+	if_z	jmp	#do_storesp_0
+		sets	storesp_pat, pa
+		mov	opptr, #storesp_pat
+		jmp	#emit4
