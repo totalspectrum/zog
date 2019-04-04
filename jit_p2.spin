@@ -28,7 +28,8 @@
 '' maximum number of P2 longs emitted for any one instruction
 #define MAX_INSTR_LENGTH 10
 
-#define CACHE_SIZE $8000 - (MAX_INSTR_LENGTH*4)
+#define CACHE_SIZE $C000 - (MAX_INSTR_LENGTH*4)
+#define CACHE_START $70000
 
 CON
 'I/O control block commands
@@ -49,7 +50,7 @@ PUB stop
     cog := 0
 
 PUB getdispatch_table
-  return $70000
+  return CACHE_START
 
 PUB getzog
   return @enter
