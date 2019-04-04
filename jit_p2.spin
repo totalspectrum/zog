@@ -18,8 +18,8 @@
 }}
 '' useful def for turning stuff on and off
 #define ALWAYS
-#define DEBUG
-#define DEBUG_TRAMPOLINE
+'#define DEBUG
+'#define DEBUG_TRAMPOLINE
 
 ''
 '' various bits used in instructions
@@ -503,6 +503,8 @@ cache_miss
 		mov  	orig_pb, pb   		 ' save starting pb address
 		add	opdata, #$100
 		wrlut	orig_cachepc, opdata
+
+		mov	trace_flags, #0
 compile_loop
 		rdbyte	pa, pb wc	' fetch next opcode
 		add	pb, #1
