@@ -152,7 +152,6 @@ instr0x_table
 		and	tos, zpu_math_compile
 		or	tos, zpu_math_compile
 		
-'		rdlong	tos, zpu_load_compile
 		muxz	zpu_load_pat, basic_pat1_compile
 		muxz	zpu_not_pat, basic_pat1_compile
 		muxz	zpu_flip_pat, basic_pat1_compile
@@ -471,8 +470,8 @@ cache_hit
 		'' up
 		'' BEWARE: pa can come in with some high bits set
 		'' so don't rely on those bits
-		sub	pa, #4 wcz
-	if_nz	jmp	#goto_cache
+		sub	pa, #4 wz
+	if_z	jmp	#goto_cache
 
 		'' OK, pa points at the instruction to fix up now
 		'' be careful to copy over the condition bits too
@@ -484,7 +483,10 @@ cache_hit
 		or     	opcode, orig_cachepc
 		or     	opcode, condition
 		wrlong 	opcode, pa
-
+#ifdef DEBUG_TRAMPOLINE
+		mov	debug_info, pb
+		call	#\@@@runtime_break		' DEBUG CODE
+#endif
 goto_cache
 		jmp	orig_cachepc
 
@@ -829,7 +831,7 @@ zpu_pushpc_compile
 		' for computed branches the compiled code looks like:
 		'     loc pb, #\CUR_PC-1 or loc pb, #\ZPU_BASE_ADDR (relative or absolute)
 		'     add pb, temp
-		' if_x ret
+		' if_x jmp \#set_pc
 compile_uncond_branch
 		mov	condition, cond_mask
 		'' fall through
@@ -1010,9 +1012,9 @@ runtime_break
                         wrlong  memp, sp_addr
                         wrlong  tos, tos_addr
                         wrlong  debug_info, debug_addr
-                        mov     temp, #io_cmd_break     'Set I/O command to BREAK
-                        wrlong  temp, io_command_addr
-.wait                   rdlong  temp, io_command_addr wz
+                        mov     memp, #io_cmd_break     'Set I/O command to BREAK
+                        wrlong  memp, io_command_addr
+.wait                   rdlong  memp, io_command_addr wz
               if_nz     jmp     #.wait
 	                ret
 
