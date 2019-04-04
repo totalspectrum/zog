@@ -18,14 +18,16 @@
 }}
 '' useful def for turning stuff on and off
 #define ALWAYS
-'#define DEBUG
+#define DEBUG
 
 ''
 '' various bits used in instructions
 #define IMM_BIT  18
 
 '' maximum number of P2 longs emitted for any one instruction
-#define MAX_INSTR_LENGTH 8
+#define MAX_INSTR_LENGTH 16
+
+#define CACHE_SIZE $2000 - MAX_INSTR_LENGTH
 
 CON
 'I/O control block commands
@@ -68,6 +70,7 @@ zpu_memory_addr
 		rdlong	zpu_memory_addr, ptra++		' 0
 zpu_memory_sz
 		rdlong	zpu_memory_sz, ptra++		' 4
+base_of_cache_mem
 dispatch_tab_addr
 		rdlong	pb, ptra++			' 8
 temp
@@ -110,13 +113,16 @@ opptr
 		mov	debug_addr, temp
 condition
 		add	ptrb, zpu_memory_addr
+top_of_cache_mem
 		add	pb, zpu_memory_addr
-
+orig_cachepc
+		mov	top_of_cache_mem, base_of_cache_mem
+orig_pb
+		add	top_of_cache_mem, ##CACHE_SIZE
 		''
 		'' initialize the cache
 		''
 		call	#reinit_cache
-		mov	tos, #$FF
 		'' and go do everything
 		jmp	#start_running
 
@@ -449,35 +455,39 @@ start_running
 		'' jump to address in pb (which is already adjusted to HUB)
 		''
 set_pc
-#ifdef DEBUG
-		call	#runtime_break		' DEBUG CODE
-#endif
+
 		'' check here for a cache hit
-		getnib	opdata, pb, #0
-#ifdef NEVER
-#warn not finished yet
-		alts	opdata, #trace_zpc
-		mov	temp2, 0-0		' fetch start of trace
+		getbyte	opdata, pb, #0
+		rdlut	temp2, opdata		' fetch start of trace
 		cmp	temp2, pb wz
 	if_nz	jmp	#cache_miss		' if not in cache, recompile
+		jmp	#cache_miss
 		
-		alts	opdata, #trace_cachebase
-		mov	cachepc, 0-0
+		'' if a cache hit, just load the cache address and jump to it
+		add	opdata, #$100
+		rdlut	cachepc, opdata
+#ifdef DEBUG
+		mov	debug_info, cachepc
+		call	#runtime_break		' DEBUG CODE
+#endif
 		push	#set_pc
 		jmp	cachepc
-#endif
 
 cache_miss
 		' OK, we got a cache miss here
 		' so we have to compile a new trace
 
 		' if the cache is full, flush it
-		call	#reinit_cache
+		mov	temp2, top_of_cache_mem
+		subs	temp2, cachepc wcz
 
-'		altd opdata, #trace_zpc
-'		mov  0-0, pb		' update trace zpc
-		mov  orig_cachepc, cachepc	 ' save the starting cachepc
-		mov  orig_pb, pb   		 ' save starting pb address
+    if_be	call	#reinit_cache
+
+    		wrlut	pb, opdata		' update cached pc
+		mov	orig_cachepc, cachepc	 ' save the starting cachepc
+		mov  	orig_pb, pb   		 ' save starting pb address
+		add	opdata, #$100
+		wrlut	orig_cachepc, opdata
 compile
 		rdbyte	pa, pb wc	' fetch next opcode
 		add	pb, #1
@@ -497,18 +507,17 @@ compile_non_imm
        		call	temp2
 
 done_instruction
-#ifdef FIXME
+
 		' are we finishing the trace?
 		test	trace_flags, #1 wc
 	if_c	jmp	#close_trace
 
 		' is there room for another instruction?
 		' if not, close out the cache line
-		mov	temp, cachepc
-		sub	temp, orig_cachepc
-		cmp	temp, #31-MAX_INSTR_LENGTH wcz
-	if_b	jmp	#compile
-#endif	
+		mov	temp, top_of_cache_mem
+		subs	temp, cachepc wcz
+	if_a	jmp	#compile
+
 close_trace
 		' emit a loc instruction to finish the trace
 		mov	opcode, locpb_ret_pat
@@ -834,10 +843,8 @@ compile_cond_branch
 	if_nz	sub	emitcnt, #1		' emit 2 or 1 instruction
 	if_nz	add	opptr, #1
 
-		call	#emit
-		cmp	condition, cond_mask wz
-	if_z	jmp	#done_compiling
-		ret
+		or	trace_flags, #1
+		jmp	#emit
 		
 		' 
 		' conditional branches
@@ -949,8 +956,7 @@ reinit_cache
 	wrlut	temp, temp2
 	add	temp2, #1
 .endloop
-
-_ret_	mov	cachepc, dispatch_tab_addr
+_ret_	mov	cachepc, base_of_cache_mem
 	
 ''''''''''''''''''''''
 '' variables
@@ -965,13 +971,11 @@ zpu_cog_start           long $80008000  'Start of COG access window in ZPU memor
 
 cond_mask		long $f0000000  ' mask for conditional execution bits in instruction
 
-orig_cachepc
-		res	1
-orig_pb
+cache_space_avail
 		res	1
 pendingImm
 		res	1		' if non-zero, immval holds an immediate which needs to be dealt with
 immval
 		res	1		' immediate to apply to instruction, if pendingImm is non-zero
 
-		fit	$1e0
+		fit	$1ec
