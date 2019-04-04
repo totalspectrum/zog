@@ -465,13 +465,16 @@ set_pc
 		rdlut	temp2, opdata		' fetch start of trace
 		cmp	temp2, pb wz
 	if_nz	jmp	#cache_miss		' if not in cache, recompile
-		jmp	#cache_miss		' DEBUG FIXME why this?
 		
 		'' if a cache hit, just load the cache address and jump to it
 		add	opdata, #$100
-		rdlut	cachepc, opdata
+		rdlut	temp, opdata
 		push	#set_pc
-		jmp	cachepc
+#ifdef DEBUG
+		rdlong	debug_info, temp
+		call	#runtime_break
+#endif
+		jmp	temp
 
 cache_miss
 		' OK, we got a cache miss here
@@ -488,7 +491,7 @@ cache_miss
 		mov  	orig_pb, pb   		 ' save starting pb address
 		add	opdata, #$100
 		wrlut	orig_cachepc, opdata
-compile
+compile_loop
 		rdbyte	pa, pb wc	' fetch next opcode
 		add	pb, #1
 	if_c	jmp	#is_imm		' if high bit set, this is an immediate instruction
@@ -516,7 +519,7 @@ compile_non_imm
 		' if not, close out the cache line
 		mov	temp, top_of_cache_mem
 		subs	temp, cachepc wcz
-	if_a	jmp	#compile
+	if_a	jmp	#compile_loop
 
 close_trace
 		' emit a loc instruction to finish the trace
@@ -977,4 +980,4 @@ pendingImm
 immval
 		res	1		' immediate to apply to instruction, if pendingImm is non-zero
 
-		fit	$1ec
+		fit	$1ee

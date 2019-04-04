@@ -627,8 +627,7 @@ PRI on_break | cmd
     crlf
   print_regs
 
-  if step_count > 1
-    --step_count
+  if step_count > 1 and zog_mbox_pc <> step_count
     zog_mbox_command := 0
     return
     
@@ -638,7 +637,7 @@ PRI on_break | cmd
       step_count := 1
       quit
     if cmd == "g"
-      step_count := 100
+      step_count := $6c4
       quit
     ser.tx(string("Press space to step once, g to step 100 times", 13, 10))
 
