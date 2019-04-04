@@ -159,7 +159,7 @@ instr2x_table
 		long	zpu_illegal_compile
 		long	zpu_illegal_compile
 		rdword	tos, zpu_load_compile
-		wrword	tos, zpu_storeh_compile
+		muxz	zpu_storeh_pat, basic_pat1_compile
 		cmps	tos, zpu_lt_compile wcz
 		cmps	tos, zpu_le_compile wcz
 		cmp	tos, zpu_ltu_compile wcz
@@ -179,7 +179,7 @@ instr3x_table
 		xor	tos, zpu_math_compile
 		rdbyte	tos, zpu_load_compile
 		
-		wrbyte	tos, zpu_storeh_compile
+		muxz	zpu_storeb_pat, basic_pat1_compile
 		muxz	zpu_div_pat, basic_pat1_compile
 		muxz	zpu_mod_pat, basic_pat1_compile
 	if_z	muxz	0, zpu_eqbranch_compile
@@ -275,9 +275,13 @@ storesp_pat
 		wrlong	tos, temp
 		rdlong	tos, ++ptrb
 
-set_le_pat
-		mov	tos, #0
-   if_le	mov	tos, #1
+set_gt_pat
+		mov	tos, #1
+   if_le	mov	tos, #0
+
+set_ge_pat
+		mov	tos, #1
+   if_lt	mov	tos, #0
 
 cmp_pat		cmp	tos, 0 wcz
 wrnc_pat
@@ -307,6 +311,10 @@ zpu_config_pat
 
 zpu_store_pat
 		call	#\runtime_store
+zpu_storeh_pat
+		call	#\runtime_storeh
+zpu_storeb_pat
+		call	#\runtime_storeb
 
 zpu_call_pat
 		mov	pb, tos
@@ -343,7 +351,23 @@ runtime_store
 			add	memp, zpu_memory_addr
 		_ret_	wrlong	data, memp
 
-		'' calculate tos / data on stack
+runtime_storeh
+			rdlong	data, ++ptrb
+			mov	memp, tos wc
+			rdlong	tos, ++ptrb
+		if_c	jmp	#write_long_zpu		' write special address
+			add	memp, zpu_memory_addr
+		_ret_	wrword	data, memp
+
+runtime_storeb
+			rdlong	data, ++ptrb
+			mov	memp, tos wc
+			rdlong	tos, ++ptrb
+		if_c	jmp	#write_long_zpu		' write special address
+			add	memp, zpu_memory_addr
+		_ret_	wrbyte	data, memp
+
+			'' calculate tos / data on stack
 runtime_do_mod
 			mov	temp2, #1	' flag for remainder
 			jmp	#do_divmod
@@ -630,23 +654,23 @@ zpu_mult_compile
 		jmp	#emit1
 
 		'' compile newtos < tos
-		'' which is equivalent to (tos <= newtos)
+		'' which is equivalent to (tos > newtos)
 		'' opdata has "cmp" or "cmps" as appropriate
 zpu_lt_compile
 zpu_ltu_compile
 		mov	opcode, opdata
 		call	#compile_op_tos_or_imm
-		mov	opptr, #set_le_pat
+		mov	opptr, #set_gt_pat
 		jmp	#emit2
 
 		' newtos <= tos
-		' is the same as !(tos < newtos)
+		' is the same as (tos >= newtos)
 zpu_le_compile
 zpu_leu_compile
 		mov	opcode, opdata
 		call	#compile_op_tos_or_imm
-		mov	opptr, #wrnc_pat
-		jmp	#emit1
+		mov	opptr, #set_ge_pat
+		jmp	#emit2
 
 zpu_eq_compile
 		mov	opcode, cmp_pat
@@ -924,4 +948,4 @@ pendingImm
 immval
 		res	1		' immediate to apply to instruction, if pendingImm is non-zero
 
-		fit	$1d0
+		fit	$1e0
