@@ -604,6 +604,8 @@ PRI on_output
   case zog_mbox_port
     UART_TX_PORT:
       'ser.tx("[")
+      if zog_mbox_data == 10
+        ser.tx(13)
       ser.tx(zog_mbox_data)
       'ser.tx("]")
     other:

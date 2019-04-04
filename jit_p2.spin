@@ -24,9 +24,6 @@
 '' various bits used in instructions
 #define IMM_BIT  18
 
-'' number of bytes used in
-#define TRACE_TAGS_SIZE 8
-
 '' maximum number of P2 longs emitted for any one instruction
 #define MAX_INSTR_LENGTH 8
 
@@ -122,8 +119,11 @@ condition
 		mov	tos, #$FF
 		'' and go do everything
 		jmp	#start_running
-		
-		'' table for compiling instructions
+
+		'' address for getcnt() routine
+io_timer_address           long $80000100
+
+'' table for compiling instructions
 		'' this is done in two levels, one for high nibble, then optionally tables for low nibble
 nibble_table
 		long	instr0x_table | $80000000
@@ -145,7 +145,8 @@ instr0x_table
 		and	tos, zpu_math_compile
 		or	tos, zpu_math_compile
 		
-		rdlong	tos, zpu_load_compile
+'		rdlong	tos, zpu_load_compile
+		muxz	zpu_load_pat, basic_pat1_compile
 		muxz	zpu_not_pat, basic_pat1_compile
 		muxz	zpu_flip_pat, basic_pat1_compile
 		long	zpu_nop_compile
@@ -315,6 +316,8 @@ zpu_storeh_pat
 		call	#\runtime_storeh
 zpu_storeb_pat
 		call	#\runtime_storeb
+zpu_load_pat
+		call	#\runtime_load
 
 zpu_call_pat
 		mov	pb, tos
@@ -367,6 +370,12 @@ runtime_storeb
 			add	memp, zpu_memory_addr
 		_ret_	wrbyte	data, memp
 
+runtime_load
+                        mov     memp, tos wc
+	if_c		jmp	#read_zpu_tos	' special ZPU address emulation
+			add	memp, zpu_memory_addr
+        _ret_           rdlong  tos, memp
+
 			'' calculate tos / data on stack
 runtime_do_mod
 			mov	temp2, #1	' flag for remainder
@@ -410,6 +419,28 @@ write_io_long           wrlong  memp, io_port_addr    'Set port address
               if_nz     jmp     #.wait
 	      		ret
 
+'Read a LONG from ZPU memory at "address" into "tos"
+
+read_zpu_tos
+read_cog_long           cmp     memp, zpu_cog_start wc  'Check for COG memory access
+              if_c      jmp     #read_io_long
+
+                        shr     memp, #2
+                        alts    memp, #0
+     _ret_              mov     tos, 0-0
+
+read_io_long            cmp     memp, io_timer_address wz 'Check for timer read
+	      if_nz	jmp	#read_other
+              _ret_     getct   tos
+
+read_other                                                      'Must be other I/O address
+                        wrlong  memp, io_port_addr 'Set port address
+                        mov     temp, #io_cmd_in      'Set I/O command to IN
+                        wrlong  temp, io_command_addr
+.wait                   rdlong  temp, io_command_addr wz 'Wait for command to be completed
+              if_nz     jmp     #.wait
+	      _ret_     rdlong  tos, io_data_addr    'Get the port data
+
 		'''''''''''''''''''''''''''''''''''''''''''''
 		'' main interpreter entry point:
 		'''''''''''''''''''''''''''''''''''''''''''''
@@ -442,9 +473,9 @@ cache_miss
 
 		' if the cache is full, flush it
 		call	#reinit_cache
-		
-		altd opdata, #trace_zpc
-		mov  0-0, pb		' update trace zpc
+
+'		altd opdata, #trace_zpc
+'		mov  0-0, pb		' update trace zpc
 		mov  orig_cachepc, cachepc	 ' save the starting cachepc
 		mov  orig_pb, pb   		 ' save starting pb address
 compile
@@ -914,9 +945,8 @@ emit_opcode
 reinit_cache
 	neg	temp, #1
 	mov	temp2, #0
-	rep	@.endloop, #TRACE_TAGS_SIZE
-	altd	temp2, #trace_zpc
-	mov	0-0, temp
+	rep	@.endloop, #256
+	wrlut	temp, temp2
 	add	temp2, #1
 .endloop
 
@@ -935,10 +965,6 @@ zpu_cog_start           long $80008000  'Start of COG access window in ZPU memor
 
 cond_mask		long $f0000000  ' mask for conditional execution bits in instruction
 
-trace_zpc
-		res	TRACE_TAGS_SIZE		' 16 longs for ZPU PC of start of cache
-trace_cachebase
-		res	TRACE_TAGS_SIZE		' 16 longs for LUT addresses of cache base
 orig_cachepc
 		res	1
 orig_pb
