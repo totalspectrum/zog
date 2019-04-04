@@ -16,6 +16,9 @@
       ptrb holds the stack pointer
 
 }}
+'' useful def for turning stuff on and off
+#define ALWAYS
+#define DEBUG
 
 ''
 '' various bits used in instructions
@@ -180,10 +183,12 @@ instr3x_table
 		muxz	zpu_div_pat, basic_pat1_compile
 		muxz	zpu_mod_pat, basic_pat1_compile
 	if_z	muxz	0, zpu_eqbranch_compile
+	
 	if_nz	muxz	0, zpu_nebranch_compile
 		long	zpu_poppcrel_compile
 		muxz	zpu_config_pat, basic_pat2_compile
 		long	zpu_pushpc_compile
+		
 		long	zpu_syscall_compile
 		muxz	zpu_pushspadd_pat, basic_pat3_compile
 		mul	tos, zpu_math_compile
@@ -387,7 +392,7 @@ start_running
 		'' jump to address in pb (which is already adjusted to HUB)
 		''
 set_pc
-#ifdef ALWAYS
+#ifdef DEBUG
 		call	#runtime_break		' DEBUG CODE
 #endif
 		'' check here for a cache hit
@@ -578,6 +583,9 @@ zpu_poppc_compile
 jmp_indirect
 		mov	opptr, #poptemp_pat
 		mov	t2, #0		' flags: 2= immval valid, 1 = relative branch
+		'' need to pop tos into temp
+		mov	opptr, #poptemp_pat
+		call	#emit2
 		jmp	#compile_uncond_branch
 
 zpu_poppcrel_compile
@@ -756,8 +764,6 @@ compile_cond_branch
 		andn	end_branch_pat+1, cond_mask
 		or	end_branch_pat+1, condition
 
-		mov	debug_info, condition
-		
 		' now emit the actual branch
 		mov	emitcnt, #2
 		mov	opptr, #end_branch_pat
@@ -842,7 +848,9 @@ imm_loop
 		jmp	#imm_loop
 done_imm
 		mov	pendingImm, #1
+#ifdef DEBUG		
 		mov	debug_info, immval
+#endif		
 		jmp	#compile_non_imm
 
 emit_mov

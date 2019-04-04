@@ -618,7 +618,7 @@ PRI on_break
 'Handle CPU break condition
   if step_count == 0
     crlf
-    ser.str(string("#pc,opcode,sp,top_of_stack,next_on_stack"))
+    ser.str(string("# (HUB) pc,opcode,sp,top_of_stack,next_on_stack"))
     crlf
     ser.str(string("#----------"))
     crlf
@@ -794,7 +794,9 @@ PRI _time
 
 PRI print_regs | i, p, op, d
 'Print the ZPU registers
-  ser.str(string("0x"))
+  ser.str(string("("))
+  ser.hex(@zpu_memory[zog_mbox_pc^ENDIAN_FIX], 5)
+  ser.str(string(") 0x"))
   ser.hex(zog_mbox_pc, 7)
   ser.tx($20)
   ser.str(string("0x"))
