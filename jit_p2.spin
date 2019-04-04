@@ -209,20 +209,21 @@ aug_mask	long	$007fffff	' 23 bits
 locpb_pat
 		loc	pb, #\0-0
 
-locpb_ret_pat
-	_ret_	loc	pb, #\0-0
-
+end_cacheline_pat
+		loc	pb, #\0-0
+		calld	pa, #\trampoline_set_pc
+		
 locpa_and_tos_pat
 locpa_pat
 		loc	pa, #\0-0
 		mov	tos, pa
 
 direct_branch_pat
-		calld	pa, #\set_pc
+		calld	pa, #\trampoline_set_pc
 		
 indirect_branch_pat
 		add	pb, temp
-		calld	pa, #\set_pc
+		jmp	#\set_pc
 		
 loc_mask	long	$000fffff	' 20 bits
 pushtos_pat
@@ -442,6 +443,9 @@ start_running
 		'' jump to address in pb (which is already adjusted to HUB)
 		''
 set_pc
+		mov	pa, #0		' source for destination is not known
+trampoline_set_pc
+
 #ifdef DEBUG
 		mov	debug_info, cachepc
 		call	#\@@@runtime_break		' DEBUG CODE
@@ -452,11 +456,11 @@ set_pc
 		rdlut	temp2, opdata		' fetch start of trace
 		cmp	temp2, pb wz
 	if_nz	jmp	#cache_miss		' if not in cache, recompile
-		
+
+cache_hit
 		'' if a cache hit, just load the cache address and jump to it
 		add	opdata, #$100
 		rdlut	temp, opdata
-		push	#set_pc
 #ifdef DEBUG
 		rdlong	debug_info, temp
 		call	#\@@@runtime_break
@@ -510,13 +514,12 @@ compile_non_imm
 
 close_trace
 		' emit a loc instruction to finish the trace
-		mov	opcode, locpb_ret_pat
-		andn	opcode, loc_mask
-		or     	opcode, pb
-		call   	#emit_opcode
+		andn	end_cacheline_pat, loc_mask
+		or     	end_cacheline_pat, pb
+		mov	opptr, #end_cacheline_pat
+		call   	#emit2
 
 		' OK, all done compiling
-		push	#set_pc
 		jmp	orig_cachepc
 
 		''''''''''''''''''''''''''''''''''''''
