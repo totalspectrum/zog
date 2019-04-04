@@ -8,7 +8,7 @@
       A trace continues to an unconditional branch, unless the branch is to
       the start of the trace.
 
-      Note that no individual ZPU instruction is permitted to take more than 8 P2 instructions; so we know if
+      Note that no individual ZPU instruction is permitted to take more than 10 P2 instructions; so we know if
       we get to that close to the end of the trace cache then we have to flush it and re-initialize the cache.
       
   Register usage:
@@ -25,9 +25,9 @@
 #define IMM_BIT  18
 
 '' maximum number of P2 longs emitted for any one instruction
-#define MAX_INSTR_LENGTH 16
+#define MAX_INSTR_LENGTH 10
 
-#define CACHE_SIZE $2000 - MAX_INSTR_LENGTH
+#define CACHE_SIZE $8000 - (MAX_INSTR_LENGTH*4)
 
 CON
 'I/O control block commands
@@ -243,7 +243,7 @@ add_membase_to_tos_pat
 
 zpu_illegal_pat
 zpu_breakpoint_pat
-		call	#\runtime_break
+		call	#\@@@runtime_break
 
 zpu_swap_pat
 		ror	tos, #16
@@ -330,28 +330,12 @@ zpu_call_pat
 		loc	pa, #\0
 		mov	tos, pa
 		
+debug_info long 0
+
 		'''''''''''''''''''''''''''''''''''''''''''''
 		''  runtime support code: must be present while
 		''  compiled code is running
 		'''''''''''''''''''''''''''''''''''''''''''''
-div_zero_error
-runtime_break
-			mov	memp, pb
-			sub	memp, zpu_memory_addr
-	                wrlong  memp, pc_addr             'Dump registers to HUB.
-			mov	memp, ptrb
-			sub	memp, zpu_memory_addr
-                        wrlong  memp, sp_addr
-                        wrlong  tos, tos_addr
-                        wrlong  debug_info, debug_addr
-                        mov     temp, #io_cmd_break     'Set I/O command to BREAK
-                        wrlong  temp, io_command_addr
-.wait                   rdlong  temp, io_command_addr wz
-              if_nz     jmp     #.wait
-	                ret
-
-debug_info long 0
-
 runtime_store
 			rdlong	data, ++ptrb
 			mov	memp, tos wc
@@ -390,7 +374,7 @@ runtime_do_div
 			mov	temp2, #2	' flag for division
 do_divmod
 			rdlong data, ++ptrb wz
-		if_z	jmp    #div_zero_error
+		if_z	jmp    #@@@div_zero_error
 			abs    tos, tos wc
 			muxc   t2, #%11	' store sign of tos
 			abs    data, data wc,wz
@@ -457,7 +441,7 @@ start_running
 set_pc
 #ifdef DEBUG
 		mov	debug_info, cachepc
-		call	#runtime_break		' DEBUG CODE
+		call	#\@@@runtime_break		' DEBUG CODE
 #endif
 
 		'' check here for a cache hit
@@ -472,7 +456,7 @@ set_pc
 		push	#set_pc
 #ifdef DEBUG
 		rdlong	debug_info, temp
-		call	#runtime_break
+		call	#\@@@runtime_break
 #endif
 		jmp	temp
 
@@ -980,4 +964,22 @@ pendingImm
 immval
 		res	1		' immediate to apply to instruction, if pendingImm is non-zero
 
-		fit	$1ee
+		fit	$1e8
+
+		orgh
+div_zero_error
+runtime_break
+			mov	memp, pb
+			sub	memp, zpu_memory_addr
+	                wrlong  memp, pc_addr             'Dump registers to HUB.
+			mov	memp, ptrb
+			sub	memp, zpu_memory_addr
+                        wrlong  memp, sp_addr
+                        wrlong  tos, tos_addr
+                        wrlong  debug_info, debug_addr
+                        mov     temp, #io_cmd_break     'Set I/O command to BREAK
+                        wrlong  temp, io_command_addr
+.wait                   rdlong  temp, io_command_addr wz
+              if_nz     jmp     #.wait
+	                ret
+
