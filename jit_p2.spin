@@ -551,8 +551,7 @@ zpu_callpcrel_compile
 zpu_call_compile
 		mov	t2, #0		' absolute address
 call_common
-		cmp	pendingImm, #0 wz
-	if_z	jmp	#call_indirect
+		tjz	pendingImm, #call_indirect
 		or	t2, #2	        ' flag that immval is good
 		mov	opptr, #pushtos_pat
 		jmp	#set_return_addr
@@ -699,8 +698,6 @@ zpu_addsp_compile
 
 		' emit code to put current pc into tos
 		' temp should contain the offset (-1 or 0)
-		' cases:
-
 		' mov PB - ZPU_BASE_ADDR into tos
 emit_nextpc_into_tos
 		mov	temp, pb
@@ -741,25 +738,30 @@ compile_uncond_branch
 		mov	condition, cond_mask
 		'' fall through
 compile_cond_branch
-		or	debug_info, condition
 		test	t2, #1 wz ' check for absolute vs. relative
 	if_z	mov	temp, zpu_memory_addr
 	if_nz	mov	temp, pb
 	if_nz	sub	temp, #1
-		test	t2, #2 wz ' check for absolute vs. relative
+		test	t2, #2 wz ' check for direct (immval good) vs. indirect
 	if_nz	add	temp, immval
+	
 		mov	opcode, locpb_pat
 		or	opcode, temp
+
 		call	#emit_opcode
+		
 		' fix up the condition on the ret
 		andn	end_branch_pat+1, cond_mask
 		or	end_branch_pat+1, condition
+		
 		' now emit the actual branch
 		mov	emitcnt, #2
-		mov	opptr, end_branch_pat
-		and	t2, #1			' now t2 is 1 if immval is good
-		sub	emitcnt, t2		' emit 2 or 1 instruction
-		add	opptr, t2
+		mov	opptr, #end_branch_pat
+		
+		test	t2, #2 wz   	   	' see if immval was valid   	
+	if_nz	sub	emitcnt, #1		' emit 2 or 1 instruction
+	if_nz	add	opptr, #1
+
 		call	#emit
 		cmp	condition, cond_mask wz
 	if_z	jmp	#done_compiling
@@ -797,9 +799,11 @@ pop_test_alt_pat
 		
 zpu_eqbranch_compile
 zpu_nebranch_compile
+		mov	t2, #1			' set up for relative branch
 		mov	condition, opdata
 		and	cond_mask, opdata
 		tjz	pendingImm, #br_no_imm
+		or	t2, #2			' immediate value valid
 		mov	opptr, #pop_test_imm_pat
 		mov	emitcnt, #2
 		jmp	#br_common
