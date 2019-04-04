@@ -18,7 +18,7 @@
 }}
 '' useful def for turning stuff on and off
 #define ALWAYS
-#define DEBUG
+'#define DEBUG
 
 ''
 '' various bits used in instructions
@@ -455,21 +455,21 @@ start_running
 		'' jump to address in pb (which is already adjusted to HUB)
 		''
 set_pc
+#ifdef DEBUG
+		mov	debug_info, cachepc
+		call	#runtime_break		' DEBUG CODE
+#endif
 
 		'' check here for a cache hit
 		getbyte	opdata, pb, #0
 		rdlut	temp2, opdata		' fetch start of trace
 		cmp	temp2, pb wz
 	if_nz	jmp	#cache_miss		' if not in cache, recompile
-		jmp	#cache_miss
+		jmp	#cache_miss		' DEBUG FIXME why this?
 		
 		'' if a cache hit, just load the cache address and jump to it
 		add	opdata, #$100
 		rdlut	cachepc, opdata
-#ifdef DEBUG
-		mov	debug_info, cachepc
-		call	#runtime_break		' DEBUG CODE
-#endif
 		push	#set_pc
 		jmp	cachepc
 
@@ -506,7 +506,7 @@ compile_non_imm
 		and	temp2, #$1FF
        		call	temp2
 
-done_instruction
+'done_instruction
 
 		' are we finishing the trace?
 		test	trace_flags, #1 wc
@@ -523,9 +523,8 @@ close_trace
 		mov	opcode, locpb_ret_pat
 		andn	opcode, loc_mask
 		or     	opcode, pb
-emit_opcode_and_done_compiling
 		call   	#emit_opcode
-done_compiling
+
 		' OK, all done compiling
 		push	#set_pc
 		jmp	orig_cachepc
