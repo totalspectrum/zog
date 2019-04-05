@@ -709,8 +709,12 @@ write_io_long           wrlong  address, io_port_addr 'Set port address
 '------------------------------------------------------------------------------
 fast_mul
 #ifdef USE_CORDIC_MULDIV
-			setq	#0
 			qmul	tos, data
+			'' if data is simple we can just do the multiply
+			'' and never bother picking up the cordic result
+			cmp    data, #4 wz
+		if_z	shl    tos, #2
+		if_z	ret
 	_ret_		getqx	tos
 #else
 			' speed up by counting via smaller item

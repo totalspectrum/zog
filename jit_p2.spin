@@ -175,7 +175,7 @@ instr2x_table
 		muxz	zpu_swap_pat, basic_pat1_compile
 		long	zpu_mult_compile
 		shr	tos, zpu_math_compile
-		shl	tos, zpu_math_compile
+shl_pat		shl	tos, zpu_math_compile
 		sar	tos, zpu_math_compile
 		long	zpu_call_compile
 		long	zpu_eq_compile
@@ -689,11 +689,23 @@ zpu_math_compile
 		jmp	#compile_op_tos_or_imm
 
 zpu_mult_compile
+		' optimize multiplies by 4
+		tjz	pendingImm, #do_qmul
+		cmp	immval, #4 wz
+	if_z	mov	immval, #2
+	if_z	jmp	#make_shift
+		cmp	immval, #2 wz
+	if_z	mov	immval, #1
+	if_z	jmp	#make_shift
+do_qmul
 		mov	opcode, qmul_pat
 		call	#compile_op_tos_or_imm
 		mov	opptr, #getqx_pat
 		jmp	#emit1
-
+make_shift
+		mov	opcode, shl_pat
+		jmp	#compile_op_tos_or_imm
+		
 		'' compile newtos < tos
 		'' which is equivalent to (tos > newtos)
 		'' opdata has "cmp" or "cmps" as appropriate
