@@ -133,7 +133,7 @@
 '                          endian zpu toolchain
 '
 '
-#define SINGLE_STEP
+'#define SINGLE_STEP
 '#define CYCLE_COUNT
 '#define USE_JCACHED_MEMORY
 '#define USE_VIRTUAL_MEMORY

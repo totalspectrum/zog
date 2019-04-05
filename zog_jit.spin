@@ -170,81 +170,81 @@ dispatch_table
 ' The instruction field is also used by some compilation routines. For
 ' example, in the emit_binaryop we use it to decide which opcode to
 ' insert into cache. A lot of the compiler routines ignore this, though,
-' I use "cmp" as the generic default instruction because it stands for
-' "compiler", but I suppose whichever opcode is 0 would have made sense
-' too.
+' I use "cmpsub" as the generic default instruction because it won't
+' generate a warning, and can stand for "compile subroutine",
+' but any 2 operand instruction would do too.
 '
 ' Naming convention:
 '  pat_xxx is the pattern for instruction xxx, and is copied directly to the cache
 '  imp_xxx is any local subroutine called by pat_xxx
 '
-{00}                    cmp     pat_breakpoint, #emit_literal2	' compile zpu_breakpoint
-{01}                    cmp     pat_illegal,    #emit_literal2	' compile zpu_illegal
-{02}                    cmp     pat_pushsp,     #emit_literal2	' compile zpu_pushsp
-{03}                    cmp     pat_illegal,    #emit_literal2	' compile zpu_illegal
-{04}                    cmp     pat_poppc,      #emit_literal2	' compile zpu_poppc
+{00}                    cmpsub  pat_breakpoint, #emit_literal2	' compile zpu_breakpoint
+{01}                    cmpsub  pat_illegal,    #emit_literal2	' compile zpu_illegal
+{02}                    cmpsub  pat_pushsp,     #emit_literal2	' compile zpu_pushsp
+{03}                    cmpsub  pat_illegal,    #emit_literal2	' compile zpu_illegal
+{04}                    cmpsub  pat_poppc,      #emit_literal2	' compile zpu_poppc
 {05}                    add     0, #emit_binaryop		' compile zpu_add
 {06}                    and     0, #emit_binaryop		' compile zpu_and
 {07}                    or      0, #emit_binaryop		' compile zpu_or
-{08}                    cmp     pat_load, 	#emit_load	' compile zpu_load
-{09}                    cmp	pat_not,  #emit_literal2		' compile zpu_not
-{0A}                    cmp     pat_flip, #emit_literal2		' compile zpu_flip
-{0B}                    cmp     pat_nop,  #emit_literal2		' compile zpu_nop
-{0C}                    cmp     pat_store, #emit_literal2	' compile zpu_store
-{0C}                    cmp     pat_popsp, #emit_literal2	' compile zpu_popsp
-{0E}                    cmp     pat_illegal, #emit_literal2	' compile zpu_illegal
-{0F}                    cmp     pat_illegal, #emit_literal2	' compile zpu_illegal
+{08}                    cmpsub  pat_load, 	#emit_load	' compile zpu_load
+{09}                    cmpsub  pat_not,  #emit_literal2		' compile zpu_not
+{0A}                    cmpsub  pat_flip, #emit_literal2		' compile zpu_flip
+{0B}                    cmpsub  pat_nop,  #emit_literal2		' compile zpu_nop
+{0C}                    cmpsub  pat_store, #emit_literal2	' compile zpu_store
+{0C}                    cmpsub  pat_popsp, #emit_literal2	' compile zpu_popsp
+{0E}                    cmpsub  pat_illegal, #emit_literal2	' compile zpu_illegal
+{0F}                    cmpsub  pat_illegal, #emit_literal2	' compile zpu_illegal
 
-{10}                    cmp     pat_addsp0, #emit_literal2	' compile zpu_addsp with 0 offset
-{11}                    cmp     0, #emit_addsp
-{12}                    cmp     0, #emit_addsp
-{13}                    cmp     0, #emit_addsp
-{14}                    cmp     0, #emit_addsp
-{15}                    cmp     0, #emit_addsp
-{16}                    cmp     0, #emit_addsp
-{17}                    cmp     0, #emit_addsp
-{18}                    cmp     0, #emit_addsp
-{19}                    cmp     0, #emit_addsp
-{1A}                    cmp     0, #emit_addsp
-{1B}                    cmp     0, #emit_addsp
-{1C}                    cmp     0, #emit_addsp
-{1D}                    cmp     0, #emit_addsp
-{1E}                    cmp     0, #emit_addsp
-{1F}                    cmp     0, #emit_addsp
+{10}                    cmpsub     pat_addsp0, #emit_literal2	' compile zpu_addsp with 0 offset
+{11}                    cmpsub     0, #emit_addsp
+{12}                    cmpsub     0, #emit_addsp
+{13}                    cmpsub     0, #emit_addsp
+{14}                    cmpsub     0, #emit_addsp
+{15}                    cmpsub     0, #emit_addsp
+{16}                    cmpsub     0, #emit_addsp
+{17}                    cmpsub     0, #emit_addsp
+{18}                    cmpsub     0, #emit_addsp
+{19}                    cmpsub     0, #emit_addsp
+{1A}                    cmpsub     0, #emit_addsp
+{1B}                    cmpsub     0, #emit_addsp
+{1C}                    cmpsub     0, #emit_addsp
+{1D}                    cmpsub     0, #emit_addsp
+{1E}                    cmpsub     0, #emit_addsp
+{1F}                    cmpsub     0, #emit_addsp
 
-{20}                    cmp     pat_illegal, #emit_literal2   	' reset??
-{21}                    cmp     pat_illegal, #emit_literal2     ' interrupt??
-{22}                    cmp     pat_loadh,   #emit_literal2 	' loadh
-{23}                    cmp     pat_storeh,  #emit_literal2 	' storeh
+{20}                    cmpsub     pat_illegal, #emit_literal2   	' reset??
+{21}                    cmpsub     pat_illegal, #emit_literal2     ' interrupt??
+{22}                    cmpsub     pat_loadh,   #emit_literal2 	' loadh
+{23}                    cmpsub     pat_storeh,  #emit_literal2 	' storeh
 {24}        if_b        cmps    imp_cmp_signed,   #emit_cmp     ' lessthan
 {25}        if_be       cmps    imp_cmp_signed,   #emit_cmp 	' lessthanorequal
 {26}        if_b        cmp     imp_cmp_unsigned, #emit_cmp 	' ulessthan
 {27}        if_be       cmp     imp_cmp_unsigned, #emit_cmp 	' ulessthanorequal
-{28}                    cmp     pat_swap, #emit_literal2 	' swap
-{29}                    cmp     pat_mult, #emit_literal2	' compile multiply
+{28}                    cmpsub     pat_swap, #emit_literal2 	' swap
+{29}                    cmpsub     pat_mult, #emit_literal2	' compile multiply
 {2A}                    shr     0, #emit_binaryop 		' lshiftright
 {2B}                    shl     0, #emit_binaryop 		' ashiftleft
 {2C}                    sar     0, #emit_binaryop 		' ashiftright
-{2D}                    cmp     pat_call, #emit_literal2	' call
+{2D}                    cmpsub     pat_call, #emit_literal2	' call
 {2E}        if_z        cmp     imp_cmp_unsigned, #emit_cmp	' eq
 {2F}        if_nz       cmp     imp_cmp_unsigned, #emit_cmp 	' neq
 
-{30}                    cmp     pat_neg, #emit_literal2	        ' compile zpu_neg
+{30}                    cmpsub     pat_neg, #emit_literal2	        ' compile zpu_neg
 {31}                    sub     0, #emit_binaryop 		' sub
 {32}                    xor     0, #emit_binaryop 		' xor
-{33}                    cmp     pat_loadb,  #emit_literal2 	' loadb
-{34}                    cmp     pat_storeb, #emit_literal2 	' storeb
-{35}                    cmp     pat_div, #emit_literal2		' div
-{36}                    cmp     pat_mod, #emit_literal2 	' mod
+{33}                    cmpsub     pat_loadb,  #emit_literal2 	' loadb
+{34}                    cmpsub     pat_storeb, #emit_literal2 	' storeb
+{35}                    cmpsub     pat_div, #emit_literal2		' div
+{36}                    cmpsub     pat_mod, #emit_literal2 	' mod
 {37}        if_z        cmp     0, #emit_condbranch 		' eqbranch
 {38}        if_nz       cmp     0, #emit_condbranch 		' neqbranch
-{39}                    cmp     pat_poppcrel, #emit_literal2 	' poppcrel
-{3A}                    cmp     pat_config,   #emit_literal2 	' config
-{3B}                    cmp     pat_pushpc,  #emit_literal2	' compile pushpc
-{3C}                    cmp     pat_illegal, #emit_literal2 	' compile syscall
-{3D}                    cmp     pat_pushspadd,  #emit_literal2  ' compile pushspadd
-{3E}                    cmp     pat_mult16x16,  #emit_literal2	' compile mult16x16
-{3F}                    cmp     pat_callrelpc,  #emit_literal2 	' compile callrelpc
+{39}                    cmpsub     pat_poppcrel, #emit_literal2 	' poppcrel
+{3A}                    cmpsub     pat_config,   #emit_literal2 	' config
+{3B}                    cmpsub     pat_pushpc,  #emit_literal2	' compile pushpc
+{3C}                    cmpsub     pat_illegal, #emit_literal2 	' compile syscall
+{3D}                    cmpsub     pat_pushspadd,  #emit_literal2  ' compile pushspadd
+{3E}                    cmpsub     pat_mult16x16,  #emit_literal2	' compile mult16x16
+{3F}                    cmpsub     pat_callrelpc,  #emit_literal2 	' compile callrelpc
 
 {  The L2 cache starts immediately after the dispatch table
    first come the tags, then the actual data
@@ -586,7 +586,7 @@ imp_condbranch
 			call	#pop_tos
 			cmp	tos, #0 wz	'' condition code used when we return
   			call	#discard_tos
-  			jmp	intern_pc	'' returns to pat_condbranch
+  			jmp	intern_pc+0	'' returns to pat_condbranch
 
 div_zero_error
 			jmpret	intern_pc, #break  ' break calls get_next_pc
@@ -663,7 +663,7 @@ imp_pushpc
 			call	#get_next_pc
                         mov     tos, cur_pc
 			sub	tos, #1
-                        jmp	intern_pc
+                        jmp	intern_pc+1
 
 
 imp_call
@@ -701,7 +701,7 @@ imp_pushspadd_ret
 
 ' dummy routine to set up intern_pc
 dummy
-			jmp	intern_pc
+			jmp	intern_pc+0
 
 ' get PC of next instruction (pc+1 in ZPU documentation terms) into cur_pc
 '' this relies on intern_pc being set up
@@ -761,7 +761,7 @@ set_pc
 			call	#cogindirect
 
 cache_full
-			jmp	intern_pc
+			jmp	intern_pc+0
 
 cur_cache_ptr		long	0
 

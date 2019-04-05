@@ -472,7 +472,7 @@ cache_hit
 		call	#\@@@runtime_break		' DEBUG CODE
 #endif
 goto_cache
-		jmp	orig_cachepc
+		jmp	orig_cachepc+0		' the +0 suppresses warnings about missing #
 
 cache_miss
 		' OK, we got a cache miss here
@@ -529,7 +529,7 @@ close_trace
 		call   	#emit2
 
 		' OK, all done compiling
-		jmp	orig_cachepc
+		jmp	orig_cachepc+0
 
 		''''''''''''''''''''''''''''''''''''''
 		'' compilation routines
